@@ -1,5 +1,5 @@
 function [HSI_restored, removed_noise, other_result] = func_FastHyMix(~, HSI_noisy, params, ~)
-addpath('./methods/HSI-MixedNoiseRemoval-FastHyMix-main/scripts');
+% addpath('./methods/HSI-MixedNoiseRemoval-FastHyMix-main/scripts');
 k_subspace = params.k_subspace;
 
 img_noisy = HSI_noisy;
@@ -8,11 +8,13 @@ img_noisy = HSI_noisy;
 dir_prev = pwd;
 
 cd('./methods/HSI-MixedNoiseRemoval-FastHyMix-main/')
+% cd('H:\マイドライブ\Matlab_sto\S3TTV_for_JSTARS\Deep\HSI-MixedNoiseRemoval-FastHyMix-main')
+addpath('scripts')
 try 
     [img_FastHyMix, M, noise_std_Gaussion] = FastHyMix(img_noisy,  k_subspace);
     
     % Organizing results for output
-    HSI_restored = normalize01(img_FastHyMix);
+    HSI_restored = img_FastHyMix;
     % max(HSI_restored, [], "all")
     % min(HSI_restored, [], "all")
     
