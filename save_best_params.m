@@ -25,9 +25,9 @@ noise_conditions = { ...
 };
 
 % idc_noise_conditions = 1:size(noise_conditions, 2);
-% idc_noise_conditions = [5:6, 11:14];
+idc_noise_conditions = [5:6, 11:14];
 % idc_noise_conditions = 5:6;
-idc_noise_conditions = 11:12;
+% idc_noise_conditions = 11:12;
 % idc_noise_conditions = [5, 2];
 
 images = {...
@@ -36,8 +36,8 @@ images = {...
     "Beltsville", ...
 };
 
-% idc_images = 1:numel(images);
-idc_images = 1:3;
+idc_images = 1:numel(images);
+% idc_images = 1;
 
 
 %% Setting common parameters
@@ -58,6 +58,8 @@ stopcri = 10 ^ -stopcri_idx;
 maxiter = 20000;
 % maxiter = 5;
 
+fmt4s = @(x) round(x,4,"significant");
+
 
 %% Setting each methods info
 % SSTV
@@ -67,7 +69,7 @@ methods_info(1) = struct( ...
     "params", {{maxiter, stopcri, rhos}}, ...
     "get_params_savetext", @(params) ...
         sprintf("r%.2f_stop1e-%d", params.rho_radius, stopcri_idx), ...
-    "enable", true ...
+    "enable", false ...
 );
 
 
@@ -163,6 +165,27 @@ methods_info(end+1) = struct( ...
     "enable", false ...
 );
 
+% GASSTV_OraGuide
+GASSTV_sigma_sp = [0.01, 0.1, 1];
+GASSTV_sigma_s = [0.01, 1];
+GASSTV_lambda1 = [0.01, 0.1, 1];
+% GASSTV_lambda1 = [0.01];
+GASSTV_lambda2 = [0.01, 0.1, 1];
+% GASSTV_num_segments = [3, 5, 10];
+GASSTV_num_segments = [3];
+methods_info(end+1) = struct( ...
+    "name", "GASSTV_Oraguide", ...
+    "param_names", {{"L", "lambda1", "lambda2", "sigma_sp", "sigma_s", ...
+        "num_segments", "maxiter", "stopcri", "rho_radius"}}, ...
+    "params", {{{"L1"}, GASSTV_lambda1, GASSTV_lambda2, GASSTV_sigma_sp, GASSTV_sigma_s, ...
+        GASSTV_num_segments, maxiter, stopcri, rhos}}, ...
+    "get_params_savetext", @(params) ...
+        sprintf("l%.2g_%.2g_sp%.2g_s%.2g_ns%d_r%.2f_stop1e-%d", ...
+        params.lambda1, params.lambda2, params.sigma_sp, params.sigma_s, ...
+        params.num_segments, params.rho_radius, stopcri_idx), ...
+    "enable", false ...
+);
+
 % GASSTV
 GASSTV_sigma_sp = [0.01, 0.1, 1];
 GASSTV_sigma_s = [0.01, 1];
@@ -185,18 +208,16 @@ methods_info(end+1) = struct( ...
     "enable", false ...
 );
 
-
-% GASSTV_Const
+% GASSTV_Oraguide_Const
 GASSTV_sigma_sp = [0.01, 0.05, 0.1];
 GASSTV_sigma_l = [0.01, 0.05, 0.1];
-GASSTV_lambda_rho_sp = [0.8, 0.9, 1, 1.1];
+GASSTV_lambda_rho_sp = [0.9, 1, 1.1];
 % GASSTV_lambda1 = [0.01];
-GASSTV_lambda_rho_l = [0.8, 0.9, 1, 1.1];
+GASSTV_lambda_rho_l = [0.9, 1, 1.1];
 % GASSTV_num_segments = [3, 5, 10];
-GASSTV_num_segments = [3, 5];
-
+GASSTV_num_segments = [5];
 methods_info(end+1) = struct( ...
-    "name", "GASSTV_Const", ...
+    "name", "GASSTV_Oraguide_Const", ...
     "param_names", {{"sigma_sp", "sigma_l", "lambda_rho_sp", "lambda_rho_l", ...
         "num_segments", "maxiter", "stopcri", "rho_radius"}}, ...
     "params", {{GASSTV_sigma_sp, GASSTV_sigma_l, GASSTV_lambda_rho_sp, GASSTV_lambda_rho_l, ...
@@ -204,6 +225,27 @@ methods_info(end+1) = struct( ...
     "get_params_savetext", @(params) ...
         sprintf("lr%.2g_%.2g_sp%.2g_s%.2g_ns%d_r%.2f_stop1e-%d", ...
         params.lambda_rho_sp, params.lambda_rho_l, params.sigma_sp, params.sigma_l, ...
+        params.num_segments, params.rho_radius, stopcri_idx), ...
+    "enable", false ...
+);
+
+% GASSTV_GLR_OraGuide
+GASSTV_sigma_sp = [0.01, 0.1, 1];
+% GASSTV_sigma_s = [0.01, 1];
+GASSTV_lambda1 = [0.01, 0.1, 1];
+% GASSTV_lambda1 = [0.01];
+GASSTV_lambda2 = [0.01, 0.1, 1];
+% GASSTV_num_segments = [3, 5, 10];
+GASSTV_num_segments = [5];
+methods_info(end+1) = struct( ...
+    "name", "GASSTV_GLR_OraGuide", ...
+    "param_names", {{"L", "lambda1", "lambda2", "sigma_sp", ...
+        "num_segments", "maxiter", "stopcri", "rho_radius"}}, ...
+    "params", {{{"L1"}, GASSTV_lambda1, GASSTV_lambda2, GASSTV_sigma_sp, ...
+        GASSTV_num_segments, maxiter, stopcri, rhos}}, ...
+    "get_params_savetext", @(params) ...
+        sprintf("l%.2g_%.2g_sp%.2g_ns%d_r%.2f_stop1e-%d", ...
+        params.lambda1, params.lambda2, params.sigma_sp, ...
         params.num_segments, params.rho_radius, stopcri_idx), ...
     "enable", false ...
 );
@@ -264,12 +306,19 @@ fprintf("Deadline rate: %g\n", deg.deadline_rate);
 
 %% Computing savetext for loading
 names_params_savetext = strings(num_params_comb, 1);
+clear summary_metrics
 
 for idx_params_comb = 1:num_params_comb
     params = struct();
     for idx_params = 1:numel(params_name)
         % Assigning parameters to the structure
         params.(params_name{idx_params}) = params_comb{idx_params_comb}{idx_params};
+    end
+
+    if idx_params_comb == 1
+        summary_metrics(1) = params;
+    else
+        summary_metrics(end+1) = params;
     end
 
     names_params_savetext(idx_params_comb) = ...
@@ -285,10 +334,6 @@ fprintf("   %s   \t MPSNR\t MSSIM\t SAM\n", blanks(names_params_savetext_max));
 
 
 %% Calculating best mpsnr
-% Initialization
-best_params_savetext = strings(1);
-val_mpsnr_max  = 0;
-
 % Calculating best mpsnr
 for idx_params_comb = 1:num_params_comb
     name_params_savetext = names_params_savetext(idx_params_comb);
@@ -301,16 +346,20 @@ for idx_params_comb = 1:num_params_comb
         blanks(names_params_savetext_max - strlength(name_params_savetext))), ...
         val_mpsnr, val_mssim, val_sam);
 
-
-    if val_mpsnr_max < val_mpsnr
-        val_mpsnr_max = val_mpsnr;
-        best_params_savetext = name_params_savetext;
-    end
+    summary_metrics(idx_params_comb).mpsnr = fmt4s(val_mpsnr);
+    summary_metrics(idx_params_comb).mssim = fmt4s(val_mssim);
+    summary_metrics(idx_params_comb).sam   = fmt4s(val_sam);
 
 end
 
 
+val_mpsnr_vec = [summary_metrics.mpsnr];
+[val_mpsnr_max, best_param_index] = max(val_mpsnr_vec);
+
+best_params_savetext = names_params_savetext(best_param_index);
+
 save(fullfile(dir_result_folder, "best_params.mat"), "best_params_savetext");
+save(fullfile(dir_result_folder, "summary_metrics.mat"), "summary_metrics");
 
 fprintf("best param: %s\n", best_params_savetext);
 fprintf("MPSNR: %#.4g\n", val_mpsnr_max);

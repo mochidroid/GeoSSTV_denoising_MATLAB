@@ -45,8 +45,8 @@ noise_seed = "default";
 
 
 %% Setting paramters
-sigma_sp = 1;
-sigma_s = 0.1;
+sigma_sp = 0.01;
+sigma_l = 0.1;
 num_segments = 5;
 
 
@@ -61,11 +61,11 @@ guide_image_V_med = medfilt2(guide_image_V);
 
 
 [W_spectral_U, segmented_image_U, segmented_spectra_U, spectra_graphs_U, spectra_diff_graphs_U] ...
-    = create_spectral_graph(U, sigma_s, num_segments);
+    = create_spectral_graph(U, sigma_l, num_segments);
 [W_spectral_V, segmented_image_V, segmented_spectra_V, spectra_graphs_V, spectra_diff_graphs_V] ...
-    = create_spectral_graph(V, sigma_s, num_segments);
+    = create_spectral_graph(V, sigma_l, num_segments);
 [W_spectral_M, segmented_image_M, segmented_spectra_M, spectra_graphs_M, spectra_diff_graphs_M] ...
-    = create_spectral_graph_med(V, sigma_s, num_segments, 3);
+    = create_spectral_graph_med(V, sigma_l, num_segments, 3);
 
 
 %% Setting Operator
@@ -170,7 +170,7 @@ histogram(spectra_diff_graphs_U(:), 'EdgeColor', 'b', 'FaceColor', 'b')
 histogram(spectra_diff_graphs_V(:), 'EdgeColor', 'g', 'FaceColor', 'g')
 histogram(spectra_diff_graphs_M(:), 'EdgeColor', 'r', 'FaceColor', 'r')
 hold off
-title(sprintf("W_{s} (\\sigma_{s} = %g)", sigma_s));
+title(sprintf("W_{s} (\\sigma_{s} = %g)", sigma_l));
 legend("GT", "Noisy", "Med. Filt.", "Location", "west")
 
 
