@@ -215,6 +215,115 @@ fprintf("\nRadius_sp oracle: %.4f, simu: %.4f, Rev.: %.4f\n", lambda_sp_ora, lam
 fprintf("Radius_l oracle: %.4f, simu: %.4f\n", lambda_l_ora, lambda_l_simu)
 
 
+%%
+%% --- Inputs ---
+% U: clean HSI      (N1 x N2 x N3)
+% V: observed HSI   (N1 x N2 x N3)
+% segmented_spectra_U: segment代表スペクトルを各画素に割り当てたHSI (N1 x N2 x N3)
+
+% 例: すでにワークスペースに U, V, segmented_spectra_U がある前提
+
+%% --- Helpers ---
+% 行列カーネル（ガウシアン）から重み作成（対称化 & 対角0）
+make_gaussian_weights = @(D2, epsilon) ...
+    (exp(-D2 ./ (2*epsilon^2)) .* (1 - eye(size(D2))));  % D2は距離^2
+
+% kNNでスパース化（相互kNN対称化: max で対称化）
+function Wk = knn_sparsify(W, k)
+    K = size(W,1);
+    Wk = zeros(K);
+    for i = 1:K
+        [~, idx] = maxk(W(i,:), k);     % 自分以外の上位k
+        Wk(i, idx) = W(i, idx);
+    end
+    % 対称化（maxで結合）
+    Wk = max(Wk, Wk.');
+    % 対角0
+    Wk(1:K+1:end) = 0;
+end
+
+%% --- 1) スペクトル差分の作成（各列がノード=隣接バンド差分画像のベクトル） ---
+% ノード数: P-1 (P = N3)
+dU  = Dl(U);                    % N1 x N2 x N3
+dV  = Dl(V);                    % N1 x N2 x N3
+dS  = Dl(segmented_spectra_U);  % N1 x N2 x N3  ※グラフ構築用の差分(代表スペクトルベース)
+
+% 最後の複製スライスはノードに使わないので 1:(P-1) を採用
+P  = size(U,3);
+useBands = 1:(P-1);
+
+% 2Dに展開（各列がノード=差分ベクトル, 次元MN）
+MN = size(U,1) * size(U,2);
+F_clean = reshape(dU(:,:,useBands), [hsi.n1*hsi.n2, numel(useBands)]);   % from U
+F_obs   = reshape(dV(:,:,useBands), [hsi.n1*hsi.n2, numel(useBands)]);   % from V
+F_seg   = reshape(dS(:,:,useBands), [hsi.n1*hsi.n2, numel(useBands)]);   % for graph weights (segmented_spectra_U)
+
+%% --- 2) 重み行列 W の計算（代表スペクトルベース差分から） ---
+% ノード間ユークリッド距離の二乗行列 D2 を計算
+% ここでは列間距離: D2(i,j) = ||F_seg(:,i) - F_seg(:,j)||_2^2
+G = F_seg;                        % (MN x K), K = P-1
+K = size(G,2);
+GTG = G.'*G;                      % (K x K)
+nrm2 = diag(GTG);                 % 各列の二乗ノルム
+D2 = (nrm2 + nrm2.') - 2*GTG;     % 距離^2の行列（対称, 対角0）
+
+% epsilonの自動設定（ゼロ以外の中央値を採用）
+d2_vec = D2(triu(true(K),1));  % 上三角のオフ対角要素
+d2_vec = d2_vec(d2_vec>0);
+if isempty(d2_vec), d2_vec = 1; end
+epsilon = sqrt(median(d2_vec));   % epsilon ~ 距離の中央値の平方根
+
+% ガウシアンカーネルで重み作成
+W_full = make_gaussian_weights(D2, epsilon);  % 密行列
+
+% スパース化（相互kNN）
+k = min(10, K-1);                 % デフォルト: 上位10
+W = knn_sparsify(W_full, k);      % 最終的に使う重み（スパース）
+
+% グラフラプラシアン
+d = sum(W,2);
+L = diag(d) - W;
+
+%% --- 3) GLR評価関数の計算 ---
+% SG(F) = Tr(F L F^T) = sum_i F(:,i)^T * (sum_j W_ij [F(:,i)-F(:,j)])
+% ここでは clean と observed で比較
+SG_clean = trace(F_clean * L * F_clean.');
+SG_obs   = trace(F_obs   * L * F_obs.');
+
+% 正規化（ノード数や重み総和の影響を緩和したい場合）
+Wsum = sum(W(:))/2;     % 無向グラフの総重み
+if Wsum == 0, Wsum = 1; end
+SG_clean_norm = SG_clean / Wsum;
+SG_obs_norm   = SG_obs   / Wsum;
+
+%% --- 4) 参考: 指標の表示 ---
+fprintf('Nodes (K=P-1): %d\n', K);
+fprintf('Nonzeros in W: %d (density %.3f)\n', nnz(W), nnz(W)/numel(W));
+fprintf('epsilon (auto): %.4g\n', epsilon);
+fprintf('SG_clean: %.6g  | SG_obs: %.6g\n', SG_clean, SG_obs);
+fprintf('SG_clean_norm: %.6g  | SG_obs_norm: %.6g\n', SG_clean_norm, SG_obs_norm);
+
+
+%% ====== 3) 可視化（ヒートマップとグラフ図） ======
+% (a) 重み行列のヒートマップ
+figure; imagesc(W); axis image; colorbar;
+xlabel('ΔBand index'); ylabel('ΔBand index');
+title('Spectral Difference Graph (G1): weight matrix W');
+set(gca, 'XTick', 1:K, 'YTick', 1:K);
+
+% (b) バンド差分インデックスを付けたグラフ図（円形）
+G = graph(W, 'upper');
+nodeNames = arrayfun(@(i) sprintf('\\Delta(%d,%d)', i, i+1), 1:K, 'UniformOutput', false);
+figure;
+h = plot(G, 'Layout', 'circle', 'NodeLabel', nodeNames);
+maxW = max(W(:));
+if maxW > 0
+    h.LineWidth = 5 * (G.Edges.Weight / maxW);
+    h.EdgeCData = G.Edges.Weight; colormap(jet); colorbar;
+end
+title('G1 graph (edge width/color = weight)');
+
+
 %% Creating spatial graph
 function [W_spatial, grad_mat_2d, W_mat_2d, W_spatial_for_hist] = create_spatial_graph(X, sigma_sp)
 guide_image = single(mean(X, 3));
