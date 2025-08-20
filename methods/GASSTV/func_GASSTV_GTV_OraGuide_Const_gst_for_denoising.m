@@ -1,33 +1,20 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% f(U,S,T) = |D(Ds(U))|_1 + \lambda1|WspDsp(U)|_{1or2} + \lambda2|WsDsU|_{1or2} +
+% f(U,S,T) = |D(Dl(U))|_1 + L1ball(WspDsp(U)) + L1ball(WlDl(U)) +
 %             L1ball(S) + L1ball(T) + L2ball(U+S+T) + box constraint(U) + Dv(T)=0
 %
 % f1(U,S,T) = 0
 % f2(U,S,T) = L2ball(U+S+T)
-% f3(U,S,T) = |D(Ds(U))|_1 + \lambda1|WspDsp(U)|_{1or2} + \lambda2|WsDsU|_{1or2} +
+% f3(U,S,T) = |D(Dl(U))|_1 + L1ball(WspDsp(U)) + L1ball(WlDl(U)) +
 %              box constraint(U) + L1ball(S) + L1ball(T) + Dv(T)=0
 %
-% A = (DDs O O; WsDs O O; I O O; O I O; O O I; O O Dv)
-%
-% Algorithm is based on Naganuma's P-PDS
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% f(U,S) = |D(Ds(U))|_1 + \lambda1|WspDsp(U)|_{1or2} + \lambda2|WsDsU|_{1or2} +
-%             L2ball(U+S) + box constraint(U) + L1ball(S)
-%
-% f1(U,S) = 0
-% f2(U,S) = L2ball(U+S)
-% f3(U,S) = |D(Ds(U))|_1 + \lambda1|WspDsp(U)|_{1or2} + \lambda2|WsDsU|_{1or2} +
-%          box constraint(U) + L1ball(S)
-%
-% A = (DDs O; WspDsp O; WsDs O; I O; O I)
+% A = (DDl O O; WspDsp O O; WlDl O O; I O O; O I O; O O I; O O Dv)
 %
 % Algorithm is based on Naganuma's P-PDS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 function [HSI_restored, removed_noise, output] ...
-     = func_GASSTV_GLR_OraGuide_gst_for_denoising(HSI_clean, HSI_noisy, params, deg)
-fprintf('** Running func_GASSTV_GLR_OraGuide_gst_for_denoising **\n');
+     = func_GASSTV_GTV_OraGuide_Const_gst_for_denoising(HSI_clean, HSI_noisy, params)
+fprintf('** Running func_GASSTV_GTV_OraGuide_Const_gst_for_denoising **\n');
 HSI_clean = single(HSI_clean);
 HSI_noisy  = single(HSI_noisy);
 HSI_noisy_gpu = gpuArray(single(HSI_noisy));
@@ -36,19 +23,24 @@ HSI_noisy_gpu = gpuArray(single(HSI_noisy));
 epsilon         = gpuArray(single(params.epsilon));
 alpha           = gpuArray(single(params.alpha));
 beta            = gpuArray(single(params.beta));
-sigma_sp        = gpuArray(single(params.sigma_sp));
-% sigma_s         = single(params.sigma_s);
-lambda1         = gpuArray(single(params.lambda1));
-lambda2         = gpuArray(single(params.lambda2));
+sigma_sp        = params.sigma_sp;
+sigma_l         = params.sigma_l;
+lambda_rho_sp   = gpuArray(single(params.lambda_rho_sp));
+lambda_rho_l    = gpuArray(single(params.lambda_rho_l));
 num_segments    = single(params.num_segments);
 maxiter         = gpuArray(single(params.maxiter));
 stopcri         = gpuArray(single(params.stopcri));
 
-L               = params.L;
 
 %% Setting params
 dispiter    = unique([1:10, 1000:1000:maxiter]);
 dispband    = round(n3/2);
+
+
+%% Setting graph weight
+Wsp = Create_SpatialGraphWeight(HSI_clean, sigma_sp);
+[G, E, info_sp] = Create_SpectralDiffGraphWeight(HSI_clean, num_segments, [], sigma_l);
+K = info_sp.K;
 
 
 %% Initializing primal and dual variables
@@ -74,9 +66,9 @@ T = zeros([n1, n2, n3], 'single', 'gpuArray');
 % Y6: term of stripe noise 
 % Y7: term of flatness of stripe noise
 %
-% Y1 = (D(Ds(U)))
+% Y1 = (D(Dl(U)))
 % Y2 = Wsp.*Dsp(U)
-% Y3 = Ws.*Ds(U)
+% Y3 = Wl.*Dl(U)
 % Y4 = U
 % Y5 = S
 % Y6 = T
@@ -85,11 +77,30 @@ T = zeros([n1, n2, n3], 'single', 'gpuArray');
 
 Y1 = zeros([n1, n2, n3, 2], 'single', 'gpuArray');
 Y2 = zeros([n1, n2, n3, 4], 'single', 'gpuArray');
-Y3 = zeros([n1, n2, n3-1], 'single', 'gpuArray');
+Y3 = zeros([n1, n2, E], 'single', 'gpuArray');
 Y4 = zeros([n1, n2, n3], 'single', 'gpuArray');
 Y5 = zeros([n1, n2, n3], 'single', 'gpuArray');
 Y6 = zeros([n1, n2, n3], 'single', 'gpuArray');
 Y7 = zeros([n1, n2, n3], 'single', 'gpuArray');
+
+
+%% Setting stepsize parameters
+norm2_DDl = 8*4;    % ||D*Dl||^2
+norm2_Dsp = 16;     % ||Dsp||^2
+% ||G||^2 の粗い上界（各列の2乗ノルム）
+Gcpu  = gather(double(G));           % ※大きければ代わりに info_sp.edge_ijw から計算してもOK
+col2  = sum(Gcpu.^2, 1);
+norm2_G  = max(col2);
+norm2_A3 = 4 * norm2_G;              % ||Ds||^2(≈4) × ||G||^2
+norm2_I  = 1;
+gamma1_U = gpuArray(single( 1 / (norm2_DDl + norm2_Dsp + norm2_A3 + norm2_I) ));
+
+% gamma1_U    = gpuArray(single(1/(8*4 + 16 + 4 + 1)));
+% gamma1_U    = gpuArray(single(1/(8*4 + 4 + 1)));
+gamma1_S    = gpuArray(single(1));
+gamma1_T    = gpuArray(single(1/(4 + 1)));
+gamma2      = gpuArray(single(1/3));
+% gamma2      = gpuArray(single(1/2));
 
 
 %% Setting operators
@@ -101,50 +112,18 @@ Dt      = @(z) cat(1, -z(1, :, :, 1), -z(2:end-1, :, :, 1) + z(1:end-2, :, :, 1)
                 + cat(2, -z(:, 1, :, 2), -z(:, 2:end-1, :, 2) + z(:, 1:end-2, :, 2), z(:, end-1, :, 2));
 Dv      = @(z) z([2:end, end],:,:) - z;
 Dvt     = @(z) cat(1, -z(1, :, :), -z(2:(n1-1), :, :) + z(1:(n1-2), :, :), z(n1-1, :, :));
-Ds      = @(z) z(:, :, [2:end, end], :) - z;
-Dst     = @(z) cat(3, -z(:, :, 1), -z(:, :, 2:n3-1) + z(:, :, 1:n3-2), z(:, :, n3-1));
-
-Ds_GLR  = @(z) z(:, :, 2:end) - z(:,:,1:end-1);
-DstGLR  = @(z) cat(3, -z(:, :, 1), -z(:, :, 2:n3-1) + z(:, :, 1:n3-2), z(:, :, n3-1));
-
-% Graph based weight matrix
-% Wsp = Create_GraphWeight_OnlyLumi(HSI_noisy, sigma_sp);
-Wsp = Create_GraphWeight_OnlyLumi(HSI_clean, sigma_sp);
-
-[L_delta, ~] = Create_GraphWeight_GLR(HSI_clean, num_segments, [], []);
-% B = L_delta^{1/2} を作成（固有分解；CPU→GPU）
-Ld = gather(double(L_delta));
-Ld = (Ld + Ld.')/2;                      % 対称化（数値安定）
-[V,D2] = eig(Ld);
-d = diag(D2); d(d<0) = 0;                 % 負の微小は0にクリップ
-B = V * diag(sqrt(d)) * V.';             % B = L_delta^{1/2}
-B = gpuArray(single(B));
-K = size(B,1);
+Dl      = @(z) z(:, :, [2:end, end], :) - z;
+Dlt     = @(z) cat(3, -z(:, :, 1), -z(:, :, 2:n3-1) + z(:, :, 1:n3-2), z(:, :, n3-1));
+Dl_GTV  = @(z) z(:,:,2:end) - z(:,:,1:end-1);                 % n1 x n2 x K
+Dlt_GTV = @(z) cat(3, -z(:,:,1), -z(:,:,2:K) + z(:,:,1:K-1), z(:,:,K));
 
 
-%% Setting stepsize parameters
-% ---- lam_max(L_delta) を計算（GPU→CPUで固有値）----
-try
-    lam_max_Ldelta = gather(eigs(gather(L_delta), 1, 'lm'));   % 最大固有値
-catch
-    lam_max_Ldelta = max(abs(eig(gather(L_delta))));
-end
-lam_max_Ldelta = max(single(lam_max_Ldelta), 0);
-
-gamma1_U    = gpuArray(single(1/(8*4 + 16 + 4 * lam_max_Ldelta  + 1)));
-% gamma1_U    = gpuArray(single(1/(8*4 + 4 + 1)));
-gamma1_S    = gpuArray(single(1));
-gamma1_T    = gpuArray(single(1/(4 + 1)));
-gamma2      = gpuArray(single(1/3));
-% gamma2      = gpuArray(single(1/2));
+apply_A3  = @(U) reshape( reshape(Dl_GTV(U), [], K) * G,  n1, n2, E );      % → n1 x n2 x E
+apply_A3t = @(Y) Dlt_GTV( reshape( reshape(Y, [], E) * G.', n1, n2, K ) );   % → n1 x n2 x n3
 
 
-switch L
-    case 'L1' % p = 1, prox of L1 norm
-        Prox_Y2 = @(z) ProxL1norm(z/gamma2, lambda1/gamma2);
-    case 'L2' % p = 2, prox of L2 norm
-        Prox_Y2 = @(z) ProxL2norm(z/gamma2, lambda1/gamma2);
-end
+lambda_sp = sum(abs(Wsp.*Dsp(HSI_clean)), "all") * lambda_rho_sp;
+lambda_l  = sum(abs(apply_A3(HSI_clean)), "all") * lambda_rho_l;
 
 
 %% main loop (P-PDS)
@@ -158,6 +137,8 @@ move_mpsnr = zeros([1, maxiter], 'single');
 move_mssim = zeros([1, maxiter], 'single');
 running_time = zeros([1, maxiter], 'single');
 l2ball = zeros([1, maxiter], 'single');
+GTV_sp_ball = zeros([1, maxiter], 'single');
+GTV_l_ball = zeros([1, maxiter], 'single');
 
 
 for i = 1:maxiter
@@ -166,12 +147,7 @@ for i = 1:maxiter
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Updating Primal Variables
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % ---- A3^T(Y3) の計算：GLRの寄与 ----
-    tmp   = reshape(Y3, [], K) * B.';       % (MN x K)
-    tmp   = reshape(tmp, n1, n2, K);        % n1 x n2 x K
-    A3tY3 = DstGLR(tmp);                    % n1 x n2 x n3
-
-    U_tmp   = U - gamma1_U*(Dst(Dt(Y1)) + Dspt(Wsp.*Y2) + A3tY3 + Y4);
+    U_tmp   = U - gamma1_U*(Dlt(Dt(Y1)) + Dspt(Wsp.*Y2) + apply_A3t(Y3) + Y4);
     S_tmp   = S - gamma1_S*Y5;
     T_tmp   = T - gamma1_T.*(Y6 + Dvt(Y7));
 
@@ -189,23 +165,20 @@ for i = 1:maxiter
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Updating Y1
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    Y1_tmp  = Y1 + gamma2*D(Ds(U_res));
+    Y1_tmp  = Y1 + gamma2*D(Dl(U_res));
     Y1_next = Y1_tmp - gamma2*ProxL1norm(Y1_tmp/gamma2, 1/gamma2);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Updating Y2
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     Y2_tmp  = Y2 + gamma2*Wsp.*(Dsp(U_res));
-    Y2_next = Y2_tmp - gamma2*Prox_Y2(Y2_tmp);
+    Y2_next = Y2_tmp - gamma2*ProjFastL1Ball(Y2_tmp, lambda_sp);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Updating Y3
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    tmp    = Ds_GLR(U_res);                 % n1 x n2 x K
-    tmp    = reshape(tmp, [], K) * B;       % (MN x K)
-    tmp    = reshape(tmp, n1, n2, K);       % n1 x n2 x K
-    Y3_tmp = Y3 + gamma2 * tmp;
-    Y3_next = (lambda2 / (lambda2 + gamma2)) * Y3_tmp;   % prox_{γ g*} の閉形式
+    Y3_tmp  = Y3 + gamma2*Wl.*apply_A3(U_res);
+    Y3_next = Y3_tmp - gamma2*ProjFastL1Ball(Y3_tmp, lambda_l);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Updating Y4
@@ -233,10 +206,10 @@ for i = 1:maxiter
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Calculating error
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % N = HSI_noisy - U - S - T;
-    % N_next = HSI_noisy - U_next - S_next - T_next;
-    N = HSI_noisy - U - S;
-    N_next = HSI_noisy - U_next - S_next;
+    N = HSI_noisy - U - S - T;
+    N_next = HSI_noisy - U_next - S_next - T_next;
+    % N = HSI_noisy - U - S;
+    % N_next = HSI_noisy - U_next - S_next;
 
     converge_rate_U(i) = norm(U_next(:) - U(:),2)/norm(U(:),2);
     converge_rate_S(i) = norm(S_next(:) - S(:),2)/norm(S(:),2);
@@ -265,6 +238,8 @@ for i = 1:maxiter
     move_mssim(i) = calc_MSSIM(gather(U), HSI_clean);
 
     l2ball(i) = norm(gather(N(:)), 2);
+    GTV_sp_ball(i) = sum(abs(Wsp.*Dsp(U)), "all");
+    GTV_l_ball(i) = sum(abs(apply_A3(U)), "all");
 
     
     if i>=2 && converge_rate_U(i) < stopcri
@@ -275,26 +250,36 @@ for i = 1:maxiter
         fprintf("Iter: %d, Error: %0.6f, MPSNR: %#.4g, MSSIM: %#.4g, Time: %0.2f.\n", ...
             i, converge_rate_U(i), move_mpsnr(i), move_mssim(i), sum(running_time));
 
-        figure(1)
-        subplot(2,3,1)
+        f = figure(1);
+        f.Position = [1400, 500, 1400, 700];
+        % figure('Name', '1', 'Position', [1400, 500, 1400, 700])
+        subplot(2,4,1)
         imshow(HSI_clean(:,:,dispband));
         title("GT")
         
-        subplot(2,3,2)
+        subplot(2,4,2)
         imshow(HSI_noisy(:,:,dispband));
         title("Observed")
         
-        subplot(2,3,3)
+        subplot(2,4,3)
         imshow(gather(U(:,:,dispband)));
         title("Restored")
 
-        subplot(2,3,4)
+        subplot(2,4,5)
         semilogy(converge_rate_U(1:i));
         title("Converge rate U TV")
         
-        subplot(2,3,5)
+        subplot(2,4,6)
         semilogy(l2ball(1:i));
-        title("L2ball")
+        title("L2-ball")
+
+        subplot(2,4,7)
+        semilogy(GTV_sp_ball(1:i));
+        title("GTV_{sp}-ball")
+
+        subplot(2,4,8)
+        semilogy(GTV_l_ball(1:i));
+        title("GTV_{l}-ball")
         drawnow
     end
 end
@@ -323,6 +308,13 @@ output.move_mssim             = gather(move_mssim(1:output.iter));
 output.running_time           = gather(running_time(1:output.iter));
 
 output.l2ball                 = gather(l2ball(1:output.iter));
+output.GTV_sp_ball            = gather(GTV_sp_ball(1:output.iter));
+output.GTV_l_ball             = gather(GTV_l_ball(1:output.iter));
 
+output.spectral_graph.K     = gather(K);
+output.spectral_graph.E     = gather(E);
+output.spectral_graph.Wband = gather(info_sp.W_band);
+output.spectral_graph.sigma_mode = char(info_sp.sigma_l_mode);
+output.spectral_graph.val_sigma = gather(single(info_sp.val_sigma_l));
 output.Wsp                    = gather(Wsp);
-output.L_delta                = gather(L_delta);
+% output.Ws                     = gather(Wl);

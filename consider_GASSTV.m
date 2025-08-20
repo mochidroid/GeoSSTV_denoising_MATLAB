@@ -28,7 +28,7 @@ images = {...
     "Beltsville", ...
 };
 
-idx_image = 3;
+idx_image = 1;
 
 
 %% Generating observation
@@ -45,7 +45,8 @@ noise_seed = "default";
 
 
 %% Setting paramters
-sigma_sp = 0.01;
+% sigma_sp = 0.01;
+sigma_sp = "90";
 sigma_l = 0.1;
 num_segments = 5;
 
@@ -342,9 +343,22 @@ grad_mat = guide_image(:).*ones(1, 4) - diff_mat;
 grad_mat_2d = reshape(grad_mat, [n1, n2, 4]);                         
 
 % dist_mat = [1, 1, 2, 2];
+if sigma_sp == "med"
+    diff_vals = abs(grad_mat(~isinf(grad_mat)));
+    val_sigma_sp = median(diff_vals(:));
+elseif sigma_sp == "90"
+    finite_mask = isfinite(grad_mat);
+    g = abs(grad_mat(finite_mask));
+    g0 = prctile(g, 90);   % representative gradient magnitude
+    w0 = 0.2;              % desired weight at g0
+    val_sigma_sp = max( single( g0 / sqrt(2*log(1/w0)) ), eps('single') );
+else
+    val_sigma_sp = sigma_sp;
+end
+
 
 % W_mat_tmp = exp(-(grad_mat.^2)./(sigma_x.^2)/2).*exp(-dist_mat./(sigma_l.^2)/2);
-W_mat_tmp = exp(-(grad_mat.^2)/(sigma_sp^2)/2);
+W_mat_tmp = exp(-(grad_mat.^2)/(val_sigma_sp^2)/2);
 % W_mat_tmp = exp(-abs(grad_mat)/(sigma_x));
 W_mat = repmat(W_mat_tmp, n3, 1);
 
@@ -358,6 +372,9 @@ W_spatial_for_hist = [W_spatial_for_hist{1}(:); W_spatial_for_hist{2}(:); W_spat
 
 W_spatial = reshape(W_mat, [n1, n2, n3, 4]);
 W_spatial = single(W_spatial);
+
+
+fprintf('sigma_sp = %g\n', val_sigma_sp)
 
 end
 
