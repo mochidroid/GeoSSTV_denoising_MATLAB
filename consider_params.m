@@ -22,7 +22,7 @@ noise_conditions = { ...
     {0.1,   0.05,  0.05,  0.3,  0.001}, ... % g0.1 ps0.05 pt0.05 pd0.001
 };
 
-idx_noise_condition = 11;
+idx_noise_condition = 12;
 
 images = {...
     "JasperRidge", ...
@@ -30,12 +30,12 @@ images = {...
     "Beltsville", ...
 };
 
-idx_image = 3;
+idx_image = 1;
 
 fmt4s = @(x) round(x,4,"significant");
 
-% name_method = 'GASSTV_Oraguide';
-name_method = 'GASSTV_Oraguide_Const';
+name_method = 'GASSTV_Oraguide';
+% name_method = 'GASSTV_Oraguide_Const';
 % name_method = 'GASSTV_GLR_Oraguide';
 
 
@@ -63,8 +63,11 @@ dir_result_folder = fullfile(...
 %% 
 load(fullfile(dir_result_folder, "summary_metrics.mat"));
 
-label1 = "lambda_rho_sp";
-label2 = "lambda_rho_l";
+% label1 = "lambda_rho_sp";
+% label2 = "lambda_rho_l";
+
+label1 = "sigma_sp";
+label2 = "sigma_s";
 
 
 %% 
@@ -96,7 +99,7 @@ end
 
 %% 3D surface
 figure;
-surf(uy, ux, Z);
+surf(ux, uy, Z');
 shading interp; grid on; colorbar;
 xlabel(label1);
 ylabel(label2);
@@ -105,7 +108,7 @@ title('Average MPSNR vs \lambda_{\rho,sp}, \lambda_{\rho,l}');
 
 %% 2D heatmap も欲しければ
 figure;
-imagesc(uy, ux, Z);
+imagesc(ux, uy, Z');
 set(gca,'YDir','normal'); colorbar;
 xlabel(label1); ylabel(label2);
 title('Average MPSNR (dB)');
