@@ -118,8 +118,16 @@ Dl_GTV  = @(z) z(:,:,2:end) - z(:,:,1:end-1);                 % n1 x n2 x K
 Dlt_GTV = @(z) cat(3, -z(:,:,1), -z(:,:,2:K) + z(:,:,1:K-1), z(:,:,K));
 
 
-apply_A3  = @(U) reshape( reshape(Dl_GTV(U), [], K) * G,  n1, n2, E );      % → n1 x n2 x E
-apply_A3t = @(Y) Dlt_GTV( reshape( reshape(Y, [], E) * G.', n1, n2, K ) );   % → n1 x n2 x n3
+apply_A3  = @(U) reshape( ...
+                 gpuArray(single( ...
+                   ( double(reshape(Dl_GTV(U), [], K)) * G ) ...   % double × sparse(double)
+                 )), size(U,1), size(U,2), E );
+
+apply_A3t = @(Y) Dlt_GTV( ...
+                 reshape( ...
+                   gpuArray(single( ...
+                     ( double(reshape(Y, [], E)) * G.' ) ...        % double × sparse(double)
+                   )), size(Y,1), size(Y,2), K ) );
 
 
 lambda_sp = sum(abs(Wsp.*Dsp(HSI_clean)), "all") * lambda_rho_sp;
@@ -177,7 +185,7 @@ for i = 1:maxiter
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Updating Y3
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    Y3_tmp  = Y3 + gamma2*Wl.*apply_A3(U_res);
+    Y3_tmp  = Y3 + gamma2*apply_A3(U_res);
     Y3_next = Y3_tmp - gamma2*ProjFastL1Ball(Y3_tmp, lambda_l);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
