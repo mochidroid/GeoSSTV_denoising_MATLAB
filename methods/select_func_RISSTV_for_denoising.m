@@ -1,5 +1,6 @@
 function [HSI_restored, removed_noise, other_result] ...
      = select_func_RISSTV_for_denoising(HSI_clean, HSI_noisy, params, deg)
+addpath('./methods/RISSTV/')
 
 % Selecting RISSTV function based on noise conditions
 if deg.sparse_rate == 0 && deg.stripe_rate == 0
