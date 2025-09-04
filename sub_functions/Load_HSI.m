@@ -21,6 +21,19 @@ switch set_image
             hsi.start_pos(2):hsi.end_pos(2), ...
             [1:102, 110:143, 147:end]) ...
             );
+    case 'JasperRidge64f'
+        load('H:/マイドライブ/MATLAB_Share/HSIData/JasperRidge/jasperRidge2_R198.mat');
+        U_tmp = reshape(Y, [198, 100, 100]);
+        U_tmp = permute(U_tmp, [2,3,1]);
+        hsi.start_pos = [1, 37, 1];
+        hsi_size = [64, 64, size(U_tmp, 3)-hsi.start_pos(3)+1];
+        hsi.end_pos = hsi.start_pos + hsi_size - 1;
+        HSI_clean = normalize01( ...
+            U_tmp(hsi.start_pos(1):hsi.end_pos(1), ...
+            hsi.start_pos(2):hsi.end_pos(2), ...
+            [1:102, 110:143, 147:end]) ...
+            );
+        HSI_clean = flip(HSI_clean, 2);
 
 
     case 'PaviaU'
@@ -43,6 +56,15 @@ switch set_image
         hsi_size = [64, 64, size(paviaU, 3)-hsi.start_pos(3)+1];
         hsi.end_pos = hsi.start_pos + hsi_size - 1;
         HSI_clean = normalize01(paviaU(hsi.start_pos(1):hsi.end_pos(1), hsi.start_pos(2):hsi.end_pos(2), hsi.start_pos(3):hsi.end_pos(3)));
+    
+    case 'PaviaU64f'
+        load('H:/マイドライブ/MATLAB_Share/HSIData/PaviaU/PaviaU.mat')
+        hsi.start_pos = [211, 211, 5];
+        hsi_size = [64, 64, size(paviaU, 3)-hsi.start_pos(3)+1];
+        hsi.end_pos = hsi.start_pos + hsi_size - 1;
+        HSI_clean = normalize01(paviaU(hsi.start_pos(1):hsi.end_pos(1), hsi.start_pos(2):hsi.end_pos(2), hsi.start_pos(3):hsi.end_pos(3)));
+        HSI_clean = flip(HSI_clean, 2);
+
 
 
     case 'WashingtonDC'
