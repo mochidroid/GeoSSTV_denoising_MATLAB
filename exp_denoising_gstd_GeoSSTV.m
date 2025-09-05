@@ -22,14 +22,14 @@ noise_conditions = { ...
 
 % idc_noise_conditions = 1:size(noise_conditions, 2);
 % idc_noise_conditions = [5:6, 11:14];
-idc_noise_conditions = 5:8;
+idc_noise_conditions = 5:6;
 % idc_noise_conditions = [5, 2];
 
 images = {...
-    'JasperRidge64', ...
-    'JasperRidge64', ... %f
-    'PaviaU64', ...
-    'PaviaU64', ... %f
+    "JasperRidge64", ...
+    "JasperRidge64", ... %f
+    "PaviaU64", ...
+    "PaviaU64", ... %f
 };
 
 is_flipped = {...
@@ -222,7 +222,7 @@ HSI_noisy = single(HSI_noisy);
 if is_flipped{idx_image}
     HSI_clean = flip(HSI_clean, 2);
     HSI_noisy = flip(HSI_noisy, 2);
-    image = image + 'f';
+    image = image + "f";
 end
 
 
