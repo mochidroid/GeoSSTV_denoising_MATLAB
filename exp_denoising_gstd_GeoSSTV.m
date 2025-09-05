@@ -22,14 +22,21 @@ noise_conditions = { ...
 
 % idc_noise_conditions = 1:size(noise_conditions, 2);
 % idc_noise_conditions = [5:6, 11:14];
-idc_noise_conditions = 1:4;
+idc_noise_conditions = 5:8;
 % idc_noise_conditions = [5, 2];
 
 images = {...
-    "JasperRidge64", ...
-    "PaviaU64", ...
-    "JasperRidge64f", ...
-    "PaviaU64f", ...
+    'JasperRidge64', ...
+    'JasperRidge64', ... %f
+    'PaviaU64', ...
+    'PaviaU64', ... %f
+};
+
+is_flipped = {...
+    0, ...
+    1, ...
+    0, ...
+    1, ...
 };
 
 idc_images = 1:numel(images);
@@ -61,7 +68,7 @@ maxiter = 20000;
 
 %% Setting each methods info
 % GeoSSTV
-GeoSSTV.lambda = {0.01, 0.03, 0.05};
+GeoSSTV.lambda = {0.001, 0.005, 0.01, 0.03};
 
 methods_info(1) = struct( ...
     "name", "GeoSSTV", ...
@@ -88,7 +95,7 @@ methods_info(end+1) = struct( ...
 
 % HSSTV_L1
 % HSSTV.omega = {0.05};
-HSSTV.omega = {0.01, 0.03, 0.05};
+HSSTV.omega = {0.03, 0.05, 0.07};
 
 methods_info(end+1) = struct( ...
     "name", "HSSTV_L1", ...
@@ -210,6 +217,14 @@ noise_seed = "default";
 
 HSI_clean = single(HSI_clean);
 HSI_noisy = single(HSI_noisy);
+
+
+if is_flipped{idx_image}
+    HSI_clean = flip(HSI_clean, 2);
+    HSI_noisy = flip(HSI_noisy, 2);
+    image = image + 'f';
+end
+
 
 idx_exp = idx_exp + 1;
 
