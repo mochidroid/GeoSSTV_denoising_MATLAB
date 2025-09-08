@@ -254,13 +254,18 @@ for idx_params = 1:numel(params_name)
     % If rho_radius exists, calculate epsilon, alpha, and beta
     if strcmp(params_name{idx_params}, "rho_radius")
         % Calculating the rate except sparse noise and deadline noise
-        sparse_rate_true = deg.sparse_rate - 2*deg.sparse_rate*deg.deadline_rate;
-        l1norm_s = 0.5 * hsi.N * sparse_rate_true;
-        l1norm_d = norm(HSI_noisy(:), 1) * 2 * deg.deadline_rate / (1 - 2*deg.deadline_rate);
-        params.epsilon = params.rho_radius * deg.gaussian_sigma * sqrt(hsi.N * (1 - sparse_rate_true));
-        params.alpha = params.rho_radius * (l1norm_s + l1norm_d);
-        params.beta = params.rho_radius * hsi.N * (1 - sparse_rate_true) ...
-            * deg.stripe_rate * deg.stripe_intensity / 2;
+        r_sp = deg.sparse_rate;
+        r_dl = deg.deadline_rate;
+        dl_mean_width = 2;
+        cr_dl = 1 - exp(-dl_mean_width * r_dl); % cover_rate of deadline
+
+        mask_valid = (HSI_noisy > 0) & (HSI_noisy < 1);
+        mu = mean(HSI_noisy(mask_valid), 'all');
+
+        params.epsilon = params.rho_radius * deg.gaussian_sigma * sqrt(hsi.N * (1 - r_sp) * (1 - cr_dl));
+        params.alpha = params.rho_radius * hsi.N * (0.5*r_sp + mu*cr_dl);
+        params.beta    = params.rho_radius * N * (1 - r_sp) * (1 - cr_dl) ...
+            * (deg.stripe_rate * deg.stripe_intensity / 2);
     end
 end
 
