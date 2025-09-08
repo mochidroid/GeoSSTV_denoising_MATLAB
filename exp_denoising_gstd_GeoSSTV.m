@@ -264,7 +264,7 @@ for idx_params = 1:numel(params_name)
 
         params.epsilon = params.rho_radius * deg.gaussian_sigma * sqrt(hsi.N * (1 - r_sp) * (1 - cr_dl));
         params.alpha = params.rho_radius * hsi.N * (0.5*r_sp + mu*cr_dl);
-        params.beta    = params.rho_radius * N * (1 - r_sp) * (1 - cr_dl) ...
+        params.beta    = params.rho_radius * hsi.N * (1 - r_sp) * (1 - cr_dl) ...
             * (deg.stripe_rate * deg.stripe_intensity / 2);
     end
 end
