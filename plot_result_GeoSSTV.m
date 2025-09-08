@@ -8,6 +8,7 @@ addpath("func_metrics")
 %% Switching operator
 is_plot_metrics = 1;
 is_show_HSI = 1;
+% is_show_SAMmap = 1;
 diff_magnification = 7;
 
 % is_plot_psnr_and_ssim_per_band = 1;
@@ -30,22 +31,30 @@ noise_conditions = { ...
 % idc_noise_conditions = 1:size(noise_conditions, 2);
 % idc_noise_conditions = [5:6, 11:14];
 % idc_noise_conditions = 5:8;
-idc_noise_conditions = 8;
+idc_noise_conditions = 6;
 
 images = {...
     "JasperRidge64", ...
+    "JasperRidge64", ... %f
     "PaviaU64", ...
-    "JasperRidge64f", ...
-    "PaviaU64f", ...
+    "PaviaU64", ... %f
+};
+
+is_flipped = {...
+    0, ...
+    1, ...
+    0, ...
+    1, ...
 };
 
 % idc_images = 1:numel(images);
-% idc_images = 1;
-idc_images = [2];
+idc_images = 2;
+% idc_images = [2];
 
 
 %% Setting common parameters
 rho_radius = 0.95;
+% rho_radius = 0.98;
 
 stopcri_idx = 5;
 stopcri = 10 ^ -stopcri_idx;
@@ -137,6 +146,12 @@ noise_seed = "default";
 HSI_clean = single(HSI_clean);
 HSI_noisy = single(HSI_noisy);
 
+if is_flipped{idx_image}
+    HSI_clean = flip(HSI_clean, 2);
+    HSI_noisy = flip(HSI_noisy, 2);
+    image = image + "f";
+end
+
 
 % Calculation noisy results
 val_mpsnr_noisy  = calc_MPSNR(HSI_noisy, HSI_clean);
@@ -168,13 +183,16 @@ for idx_method = 1:num_methods
     load(fullfile(dir_result_folder, "best_params.mat"), "best_params_savetext");
     methods_info(idx_method).get_params_savetext = best_params_savetext;
 
-        load(fullfile(dir_result_folder, append(best_params_savetext, ".mat")), ...
-            "HSI_restored", "val_mpsnr", "val_mssim", "val_sam");
+    load(fullfile(dir_result_folder, append(best_params_savetext, ".mat")), ...
+        "HSI_restored", "val_mpsnr", "val_mssim", "val_sam");
+
+    [~, sam_map] = calc_SAM(HSI_restored, HSI_clean);
 
     methods_info(idx_method).HSI_restored = HSI_restored;
     methods_info(idx_method).val_mpsnr = val_mpsnr;
     methods_info(idx_method).val_mssim = val_mssim;
     methods_info(idx_method).val_sam = val_sam;
+    methods_info(idx_method).sam_map = sam_map;
 end
 
 
@@ -220,6 +238,26 @@ if exist("is_show_HSI", "var") && is_show_HSI == 1
 
     implay(cat(1, cat_HSI, cat_diff));
 end
+
+%% Showing SAM map
+if exist("is_show_SAMmap", "var") && is_show_SAMmap == 1
+    figure;
+    cat_sam_map = [];
+    for idx_method = 1:num_methods
+        name_method = methods_info(idx_method).name;
+        sam_map = methods_info(idx_method).sam_map;
+
+        sam_map_color = output_color_SAMmap(sam_map);
+        cat_sam_map = cat(2, cat_sam_map, sam_map_color);
+
+        subplot(1, num_methods, idx_method)
+        imshow(sam_map_color)
+        title(name_method)
+    end
+
+end
+
+
 
 
 %% Plotting psnr and ssim per band
@@ -302,4 +340,13 @@ if exist("is_output_csv", "var") && ~isempty(is_output_csv)
 end
 
 end
+end
+
+
+function [sam_map_color] = output_color_SAMmap(sam_map)
+    max_SAM = 1.3;
+    cmap = colormap('hot');
+    
+    sam_map_gray = sam_map / max_SAM;
+    sam_map_color = Gray2RGB(sam_map_gray, cmap);
 end
