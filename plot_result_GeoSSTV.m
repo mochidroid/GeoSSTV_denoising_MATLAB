@@ -20,7 +20,7 @@ noise_conditions = { ...
     %g      ps     pt     t_int pd
     {0.05,  0.05,  0.05,  0.3,  0.01}, ... % g0.05 ps0.05 pt0.05 pd0.001
     {0.1,   0.05,  0.05,  0.3,  0.01}, ... % g0.1 ps0.05 pt0.05 pd0.001
-    {0.1,   0.05,  0.05,  0.3,  0.03}, ... % g0.1 ps0.05 pt0.05 pd0.001
+    {0.05,  0.05,  0.05,  0.3,  0.03}, ... % g0.1 ps0.05 pt0.05 pd0.001
     {0.1,   0.05,  0.05,  0.3,  0.03}, ... % g0.1 ps0.05 pt0.05 pd0.001
     {0.05,  0.05,  0,     0,    0   }, ... 
     {0.1,   0.05,  0,     0,    0   }, ...
@@ -30,8 +30,9 @@ noise_conditions = { ...
 
 % idc_noise_conditions = 1:size(noise_conditions, 2);
 % idc_noise_conditions = [5:6, 11:14];
-% idc_noise_conditions = 5:8;
-idc_noise_conditions = 6;
+% idc_noise_conditions = 1:4;
+idc_noise_conditions = 5:8;
+% idc_noise_conditions = 6;
 
 images = {...
     "JasperRidge64", ...
@@ -48,20 +49,11 @@ is_flipped = {...
 };
 
 % idc_images = 1:numel(images);
-idc_images = 2;
+idc_images = [1, 3];
 % idc_images = [2];
 
 
 %% Setting common parameters
-rho_radius = 0.95;
-% rho_radius = 0.98;
-
-stopcri_idx = 5;
-stopcri = 10 ^ -stopcri_idx;
-
-maxiter = 20000;
-% maxiter = 5;
-
 load("dir_save_comp_folder.mat", "dir_save_comp_folder");
 
 
