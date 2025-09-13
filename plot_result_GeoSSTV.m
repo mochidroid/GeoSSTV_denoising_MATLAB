@@ -18,20 +18,24 @@ diff_magnification = 7;
 %% Selecting conditions
 noise_conditions = { ...
     %g      ps     pt     t_int pd
-    {0.05,  0.05,  0.05,  0.3,  0.01}, ... % g0.05 ps0.05 pt0.05 pd0.001
-    {0.1,   0.05,  0.05,  0.3,  0.01}, ... % g0.1 ps0.05 pt0.05 pd0.001
-    {0.05,  0.05,  0.05,  0.3,  0.03}, ... % g0.1 ps0.05 pt0.05 pd0.001
-    {0.1,   0.05,  0.05,  0.3,  0.03}, ... % g0.1 ps0.05 pt0.05 pd0.001
+    {0.05,  0.05,  0.05,  0.5,  0.01}, ... % g0.05 ps0.05 pt0.05 pd0.001
+    {0.1,   0.05,  0.05,  0.5,  0.01}, ... % g0.1 ps0.05 pt0.05 pd0.001
+    {0.05,  0.05,  0.05,  0.5,  0.03}, ... % g0.1 ps0.05 pt0.05 pd0.001
+    {0.1,   0.05,  0.05,  0.5,  0.03}, ... % g0.1 ps0.05 pt0.05 pd0.001
     {0.05,  0.05,  0,     0,    0   }, ... 
     {0.1,   0.05,  0,     0,    0   }, ...
     {0.05,  0.05,  0.05,  0.5,  0   }, ...
     {0.1,   0.05,  0.05,  0.5,  0   }, ...
+    {0.2,   0.05,  0,     0,    0   }, ...
+    {0.2,   0.05,  0.05,  0.5,  0   }, ...
 };
 
 % idc_noise_conditions = 1:size(noise_conditions, 2);
 % idc_noise_conditions = [5:6, 11:14];
 % idc_noise_conditions = 1:4;
-idc_noise_conditions = 5:8;
+idc_noise_conditions = 6;
+% idc_noise_conditions = 5:8;
+% idc_noise_conditions = 9:10;
 % idc_noise_conditions = 6;
 
 images = {...
@@ -56,7 +60,7 @@ idc_images = [1, 3];
 %% Setting common parameters
 load("dir_save_comp_folder.mat", "dir_save_comp_folder");
 
-
+ 
 %% Setting each methods info
 % SSTV
 methods_info(1) = struct( ...

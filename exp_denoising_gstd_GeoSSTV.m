@@ -10,19 +10,21 @@ fprintf("******* initium *******\n");
 %% Selecting conditions
 noise_conditions = { ...
     %g      ps     pt     t_int pd
-    {0.05,  0.05,  0.05,  0.3,  0.01}, ... % g0.05 ps0.05 pt0.05 pd0.001
-    {0.1,   0.05,  0.05,  0.3,  0.01}, ... % g0.1 ps0.05 pt0.05 pd0.001
-    {0.05,  0.05,  0.05,  0.3,  0.03}, ... % g0.1 ps0.05 pt0.05 pd0.001
-    {0.1,   0.05,  0.05,  0.3,  0.03}, ... % g0.1 ps0.05 pt0.05 pd0.001
+    {0.05,  0.05,  0.05,  0.5,  0.01}, ... % g0.05 ps0.05 pt0.05 pd0.001
+    {0.1,   0.05,  0.05,  0.5,  0.01}, ... % g0.1 ps0.05 pt0.05 pd0.001
+    {0.05,  0.05,  0.05,  0.5,  0.03}, ... % g0.1 ps0.05 pt0.05 pd0.001
+    {0.1,   0.05,  0.05,  0.5,  0.03}, ... % g0.1 ps0.05 pt0.05 pd0.001
     {0.05,  0.05,  0,     0,    0   }, ... 
     {0.1,   0.05,  0,     0,    0   }, ...
     {0.05,  0.05,  0.05,  0.5,  0   }, ...
     {0.1,   0.05,  0.05,  0.5,  0   }, ...
+    {0.2,   0.05,  0,     0,    0   }, ...
+    {0.2,   0.05,  0.05,  0.5,  0   }, ...
 };
 
 % idc_noise_conditions = 1:size(noise_conditions, 2);
 % idc_noise_conditions = [5:6, 11:14];
-idc_noise_conditions = 5:8;
+idc_noise_conditions = 1:4;
 % idc_noise_conditions = [5, 2];
 
 images = {...
@@ -39,8 +41,8 @@ is_flipped = {...
     1, ...
 };
 
-idc_images = 1:numel(images);
-% idc_images = 1;
+% idc_images = 1:numel(images);
+idc_images = [1, 3];
 
 
 idx_exp = 0;
@@ -49,7 +51,8 @@ total_exp = length(idc_noise_conditions) * length(idc_images);
 
 %% Setting common parameters
 % rhos = {0.93, 0.95, 0.98};
-rhos = {0.95};
+rhos = 0.90;
+% rhos = {0.95};
 
 % epsilon_rho = 0.01;
 
