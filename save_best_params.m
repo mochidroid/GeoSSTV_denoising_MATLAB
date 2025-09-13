@@ -17,10 +17,14 @@ noise_conditions = { ...
     {0.1,   0.05,  0,     0,    0   }, ...
     {0.05,  0.05,  0.05,  0.5,  0   }, ...
     {0.1,   0.05,  0.05,  0.5,  0   }, ...
+    {0.2,   0.05,  0,     0,    0   }, ...
+    {0.2,   0.05,  0.05,  0.5,  0   }, ...
 };
 % idc_noise_conditions = 1:size(noise_conditions, 2);
 % idc_noise_conditions = [5:6, 11:14];
-idc_noise_conditions = 5:8;
+idc_noise_conditions = 2;
+% idc_noise_conditions = 5:8;
+% idc_noise_conditions = 9:10;
 
 images = {...
     "JasperRidge64", ...
@@ -29,14 +33,16 @@ images = {...
     "PaviaU64f", ...
 };
 
-idc_images = 1:numel(images);
+% idc_images = 1:numel(images);
+idc_images = [1, 3];
 % idc_images = 1;
 
 
 %% Setting common parameters
 % rhos = {0.93, 0.95, 0.98};
-% rhos = {0.93};
-rhos = {0.95};
+% rhos = {0.90};
+rhos = {0.93};
+% rhos = {0.95};
 % rhos = {0.98};
 
 % epsilon_rho = 0.01;
@@ -82,9 +88,9 @@ methods_info(end+1) = struct( ...
 
 
 % HSSTV_L1
-% HSSTV_omega = {0.05};
-% HSSTV_omega = {0.01, 0.03, 0.05};
-HSSTV.omega = {0.03, 0.05, 0.07};
+HSSTV.omega = {0.05};
+% HSSTV.omega = {0.01, 0.03, 0.05};
+% HSSTV.omega = {0.03, 0.05, 0.07};
 
 methods_info(end+1) = struct( ...
     "name", "HSSTV_L1", ...
