@@ -18,7 +18,7 @@ idc_images = 1;
 
 
 idx_exp = 0;
-total_exp = length(idc_noise_conditions) * length(idc_images);
+total_exp = length(idc_images);
 
 
 %% Setting common parameters
@@ -178,21 +178,11 @@ num_methods = numel(methods_info);
 
 
 %% Running Expt.
-for idx_noise_condition = idc_noise_conditions
 for idx_image = idc_images
 %% Generating observation
-deg.gaussian_sigma      = noise_conditions{idx_noise_condition}{1};
-deg.sparse_rate         = noise_conditions{idx_noise_condition}{2};
-deg.stripe_rate         = noise_conditions{idx_noise_condition}{3};
-deg.stripe_intensity    = noise_conditions{idx_noise_condition}{4};
-deg.deadline_rate       = noise_conditions{idx_noise_condition}{5};
 image = images{idx_image};
 
-[HSI_clean, hsi] = Load_HSI(image);
-noise_seed = "default";
-[HSI_noisy, deg] = Generate_obsv_for_denoising(HSI_clean, deg, noise_seed);
-
-HSI_clean = single(HSI_clean);
+[HSI_noisy, hsi] = Load_real_HSI(image);
 HSI_noisy = single(HSI_noisy);
 
 
@@ -294,7 +284,6 @@ close all
 
 end
 
-end
 end
 end
 
