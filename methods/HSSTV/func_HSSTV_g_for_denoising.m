@@ -237,7 +237,7 @@ HSI_restored                        = gather(U);
 other_result.iteration              = gather(i);
 % removed_noise.sparse_noise          = gather(S);
 % removed_noise.stripe_noise          = gather(T);
-removed_noise.gaussian_noise        = gather(HSI_noisy_gpu - U - S - T);
+% removed_noise.gaussian_noise        = gather(HSI_noisy_gpu - U - S - T);
 removed_noise.gaussian_noise        = gather(HSI_noisy_gpu - U);
 removed_noise.all_noise             = gather(HSI_noisy_gpu - U);
 
