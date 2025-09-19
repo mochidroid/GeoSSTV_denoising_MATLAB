@@ -1,27 +1,27 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% f(U,W1,W2,S) = \lambda|W1|_{1,2} + |W2|_{1,2} + 
+% f(U,W1,W2,S,T) = \lambda|W1|_{1,2} + |W2|_{1,2} + 
 %           (L*(W1) = D(U)) + (L*(W2) = D(Ds(U))) +
-%           L2ball(U+S) + box constraint(U) + L1ball(S)
+%           L2ball(U+S+T) + box constraint(U) + L1ball(S) + L1ball(T) + (Dv(T)=0)
 %
-% f1(U,W1,W2,S) = 0
-% f2(U,W1,W2,S) = L2ball(U+S) + \lambda|W1|_{1,2} + |W2|_{1,2}              
-% f3(U,W1,W2,S) = (L*(W1) = D(U)) + (L*(W2) = D(Ds(U))) + 
-%                   box constraint(U) + L1ball(S)
+% f1(U,W1,W2,S,T) = 0
+% f2(U,W1,W2,S,T) = L2ball(U+S+T) + \lambda|W1|_{1,2} + |W2|_{1,2}              
+% f3(U,W1,W2,S,T) = (L*(W1) = D(U)) + (L*(W2) = D(Ds(U))) + 
+%                   box constraint(U) + L1ball(S) + L1ball(T) + (Dv(T)=0)
 %                       
 %
-% A = (D -L* O O; DDs O -L* O; I O O O; O O O I)
+% A = (D -L* O O O; DDs O -L* O O; I O O O O; O O O I O; O O O O I; O O O O Dv)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 function [HSI_restored, removed_noise, other_result] ...
-     = func_RISSTV_gs_for_denoising(HSI_clean, HSI_noisy, params)
-fprintf("** Running func_RISSTV_gs_for_denoising **\n");
+     = func_GeoSSTV_g_for_denoising_v2(HSI_clean, HSI_noisy, params)
+fprintf("** Running func_GeoSSTV_g_for_denoising_v2 **\n");
 HSI_clean = single(HSI_clean);
 HSI_noisy  = single(HSI_noisy);
 HSI_noisy_gpu = gpuArray(single(HSI_noisy));
 [n1, n2, n3] = size(HSI_noisy);
 
 epsilon     = gpuArray(single(params.epsilon));
-alpha       = gpuArray(single(params.alpha));
+% alpha       = gpuArray(single(params.alpha));
 % beta        = gpuArray(single(params.beta));
 lambda      = gpuArray(single(params.lambda));
 maxiter     = gpuArray(single(params.maxiter));
@@ -41,8 +41,8 @@ Dt      = @(z) cat(1, -z(1, :, :, 1), -z(2:end-1, :, :, 1) + z(1:end-2, :, :, 1)
 Dl      = @(z) z(:, :, [2:end, end]) - z;
 Dlt     = @(z) cat(3, -z(:, :, 1), -z(:, :, 2:end-1) + z(:, :, 1:end-2), z(:, :, end-1));
 
-% Dv      = @(z) z([2:end, end], :, :) - z;
-% Dvt     = @(z) cat(1, -z(1, :, :), -z(2:(end-1), :, :) + z(1:(end-2), :, :), z(end-1, :, :));
+Dv      = @(z) z([2:end, end], :, :) - z;
+Dvt     = @(z) cat(1, -z(1, :, :), -z(2:(end-1), :, :) + z(1:(end-2), :, :), z(end-1, :, :));
 
 
 %% Initializing primal and dual variables
@@ -59,7 +59,7 @@ Dlt     = @(z) cat(3, -z(:, :, 1), -z(:, :, 2:end-1) + z(:, :, 1:end-2), z(:, :,
 U  = zeros([n1, n2, n3], "single", "gpuArray");
 W1 = zeros([n1, n2, n3, 2, 3], "single", "gpuArray");
 W2 = zeros([n1, n2, n3, 2, 3], "single", "gpuArray");
-S  = zeros([n1, n2, n3], "single", "gpuArray");
+% S  = zeros([n1, n2, n3], "single", "gpuArray");
 % T  = zeros([n1, n2, n3], "single", "gpuArray");
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -73,28 +73,24 @@ S  = zeros([n1, n2, n3], "single", "gpuArray");
 %
 % Y1 = D(U) - L*(W1)
 % Y2 = D(Ds(U)) - L*(W2) 
-% Y3 = U
-% Y4 = S
-% Y5 = T
-% Y6 = Dv(T)
+% Y3 = U + S + T
+% Y4 = Dv(T)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 Y1 = zeros([n1, n2, n3, 2], "single", "gpuArray");
 Y2 = zeros([n1, n2, n3, 2], "single", "gpuArray");
 Y3 = zeros([n1, n2, n3], "single", "gpuArray");
-Y4 = zeros([n1, n2, n3], "single", "gpuArray");
-% Y5 = zeros([n1, n2, n3], "single", "gpuArray");
-% Y6 = zeros([n1, n2, n3], "single", "gpuArray");
+% Y4 = zeros([n1, n2, n3], "single", "gpuArray");
 
 
 %% Setting step size for P-PDS
 gamma1_U    = gpuArray(single(1/(8 + 8*4 + 1)));
 gamma1_W1   = gpuArray(single(1/4));
 gamma1_W2   = gpuArray(single(1/4));
-gamma1_S    = gpuArray(single(1));
+% gamma1_S    = gpuArray(single(1));
 % gamma1_T    = gpuArray(single(1/(4 + 1)));
 % gamma2      = gpuArray(single(1/5));
-gamma2      = gpuArray(single(1/4));
+gamma2      = gpuArray(single(1/3));
 
 
 %% main loop (P-PDS)
@@ -103,7 +99,7 @@ fprintf("~~~ P-PDS STARTS ~~~\n");
 converge_rate_U = zeros([1, maxiter], "single");
 converge_rate_W1 = zeros([1, maxiter], "single");
 converge_rate_W2 = zeros([1, maxiter], "single");
-converge_rate_S = zeros([1, maxiter], "single");
+% converge_rate_S = zeros([1, maxiter], "single");
 % converge_rate_T = zeros([1, maxiter], "single");
 converge_rate_N = zeros([1, maxiter], "single");
 move_function_value = zeros([1, maxiter], "single");
@@ -118,26 +114,25 @@ for i = 1:maxiter
     tic;
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Updating Primal Variables except W1 W2
+    % Updating U
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     U_tmp   = U - gamma1_U*(Dt(Y1) + Dlt(Dt(Y2)) + Y3);
-    S_tmp   = S - gamma1_S*Y4;
-    % T_tmp   = T - gamma1_T*(Y5 + Dvt(Y6));
+    U_next  = ProjBox(U_tmp, 0, 1);
+    U_res   = 2*U_next - U;
 
-    % Primal_sum = U_tmp + S_tmp + T_tmp;
-    Primal_sum = U_tmp + S_tmp;
-    Primal_sum = ProjL2ball(Primal_sum, HSI_noisy_gpu, epsilon) - Primal_sum;
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Updating S
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % S_tmp   = S - gamma1_S*Y3;
+    % S_next  = ProjFastL1Ball(S_tmp, alpha);
+    % S_res   = 2*S_next - S;
 
-    % U_next = U_tmp + Primal_sum/3;
-    % S_next = S_tmp + Primal_sum/3;
-    % T_next = T_tmp + Primal_sum/3;
-    U_next = U_tmp + Primal_sum/2;
-    S_next = S_tmp + Primal_sum/2;
-
-    U_res = 2*U_next - U;
-    S_res = 2*S_next - S;
-    % T_res = 2*T_next - T;
-
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Updating T
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % T_tmp   = T - gamma1_T*(Y3 + Dvt(Y4));
+    % T_next  = ProjFastL1Ball(T_tmp, beta);
+    % T_res   = 2*T_next - T;
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Updating W1
@@ -153,7 +148,7 @@ for i = 1:maxiter
     W2_next  = Prox_l12norm_d4(W2_tmp, gamma1_W2);
     W2_res   = 2*W2_next - W2;
 
-    
+
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Updating Y1
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -167,25 +162,14 @@ for i = 1:maxiter
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Updating Y3
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    Y3_tmp  = Y3 + gamma2*U_res;
-    Y3_next = Y3_tmp - gamma2*ProjBox(Y3_tmp/gamma2, 0, 1);
+    % Y3_tmp  = Y3 + gamma2*(U_res + S_res + T_res);
+    Y3_tmp  = Y3 + gamma2*(U_res);
+    Y3_next = Y3_tmp - gamma2*ProjL2ball(Y3_tmp/gamma2, HSI_noisy_gpu, epsilon);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Updating Y4
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    Y4_tmp  = Y4 + gamma2*S_res;
-    Y4_next = Y4_tmp - gamma2*ProjFastL1Ball(Y4_tmp/gamma2, alpha);
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Updating Y5
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Y5_tmp  = Y5 + gamma2*T_res;
-    % Y5_next = Y5_tmp - gamma2*ProjFastL1Ball(Y5_tmp/gamma2, beta);
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Updating Y6
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Y6_next = Y6 + gamma2*Dv(T_res);
+    % Y4_next = Y4 + gamma2*Dv(T_res);
 
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -193,13 +177,13 @@ for i = 1:maxiter
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % N = HSI_noisy_gpu - U - S - T;
     % N_next = HSI_noisy_gpu - U_next - S_next - T_next;
-    N = HSI_noisy_gpu - U - S;
-    N_next = HSI_noisy_gpu - U_next - S_next;
+    N = HSI_noisy_gpu - U;
+    N_next = HSI_noisy_gpu - U_next;
 
     converge_rate_U(i) = norm(U_next(:) - U(:),2)/norm(U(:),2);
     converge_rate_W1(i) = norm(W1_next(:) - W1(:),2)/norm(W1(:),2);
     converge_rate_W2(i) = norm(W2_next(:) - W2(:),2)/norm(W2(:),2);
-    converge_rate_S(i) = norm(S_next(:) - S(:),2)/norm(S(:),2);
+    % converge_rate_S(i) = norm(S_next(:) - S(:),2)/norm(S(:),2);
     % converge_rate_T(i) = norm(T_next(:) - T(:),2)/norm(T(:),2);
     converge_rate_N(i) = norm(N_next(:) - N(:),2)/norm(N(:),2);
     
@@ -210,15 +194,13 @@ for i = 1:maxiter
     U   = U_next;
     W1  = W1_next;
     W2  = W2_next;
-    S   = S_next;
+    % S   = S_next;
     % T   = T_next;
     
     Y1  = Y1_next;
     Y2  = Y2_next;
     Y3  = Y3_next;
-    Y4  = Y4_next;
-    % Y5  = Y5_next;
-    % Y6  = Y6_next;
+    % Y4  = Y4_next;
 
  
     % Saving results per iter
@@ -277,16 +259,16 @@ HSI_restored                        = gather(U);
 other_result.interpolation1         = gather(W1);
 other_result.interpolation2         = gather(W2);
 other_result.iteration              = gather(i);
-removed_noise.sparse_noise          = gather(S);
+% removed_noise.sparse_noise          = gather(S);
 % removed_noise.stripe_noise          = gather(T);
 % removed_noise.gaussian_noise        = gather(HSI_noisy_gpu - U - S - T);
-removed_noise.gaussian_noise        = gather(HSI_noisy_gpu - U - S);
+removed_noise.gaussian_noise        = gather(HSI_noisy_gpu - U);
 removed_noise.all_noise             = gather(HSI_noisy_gpu - U);
 
 other_result.converge_rate_U        = gather(converge_rate_U(1:other_result.iteration));
 other_result.converge_rate_W1       = gather(converge_rate_W1(1:other_result.iteration));
 other_result.converge_rate_W2       = gather(converge_rate_W2(1:other_result.iteration));
-other_result.converge_rate_S        = gather(converge_rate_S(1:other_result.iteration));
+% other_result.converge_rate_S        = gather(converge_rate_S(1:other_result.iteration));
 % other_result.converge_rate_T        = gather(converge_rate_T(1:other_result.iteration));
 other_result.converge_rate_N        = gather(converge_rate_N(1:other_result.iteration));
 

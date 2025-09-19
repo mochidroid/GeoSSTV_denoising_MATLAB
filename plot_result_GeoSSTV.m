@@ -142,8 +142,8 @@ num_methods = numel(methods_info);
 
 
 %% Loading results
-for idx_noise_condition = idc_noise_conditions
 for idx_image = idc_images
+for idx_noise_condition = idc_noise_conditions
 %% Selecting noise condition
 deg.gaussian_sigma      = noise_conditions{idx_noise_condition}{1};
 deg.sparse_rate         = noise_conditions{idx_noise_condition}{2};
@@ -237,6 +237,8 @@ if exist("is_plot_metrics", "var") && is_plot_metrics == 1
             append(params_save_text, blanks(name_params_length_max - strlength(params_save_text))), ...
             val_mpsnr, val_mssim, val_sam);
     end
+
+    fprintf("\n\n")
 end
 
 

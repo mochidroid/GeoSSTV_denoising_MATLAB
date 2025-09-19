@@ -92,7 +92,7 @@ gamma1_U    = gpuArray(single(1/(8 + 8*4 + 1)));
 gamma1_W1   = gpuArray(single(1/4));
 gamma1_W2   = gpuArray(single(1/4));
 % gamma1_S    = gpuArray(single(1));
-gamma1_T    = gpuArray(single(1/4));
+gamma1_T    = gpuArray(single(1/(4 + 1)));
 % gamma2      = gpuArray(single(1/5));
 gamma2      = gpuArray(single(1/4));
 
