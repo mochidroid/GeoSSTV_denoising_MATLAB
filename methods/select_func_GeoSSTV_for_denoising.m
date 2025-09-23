@@ -11,7 +11,7 @@ if deg.sparse_rate == 0 && deg.stripe_rate == 0 && deg.deadline_rate == 0
 
 elseif deg.stripe_rate == 0
     [HSI_restored, removed_noise, other_result] = ...
-        func_GeoSSTV_gs_for_denoising(HSI_clean, HSI_noisy, params);
+        func_GeoSSTV_gs_for_denoising_v2(HSI_clean, HSI_noisy, params);
 
 elseif deg.sparse_rate == 0 && deg.deadline_rate == 0
     % [HSI_restored, removed_noise, other_result] = ...
