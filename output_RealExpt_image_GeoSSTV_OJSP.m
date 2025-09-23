@@ -15,13 +15,12 @@ is_output_image = 1;
 images = {...
     "IndianPines", ...
     "Suwannee", ...
-    "Suwannee", ...
 };
 
 % Radius parameters; 1st: IndianPines, 2nd: Suwannee
-epsilon = {30, 100, 110};
-alpha = {200, 800, 850};
-beta = {100, 5000, 5000};
+epsilon = {30, 100};
+alpha = {200, 800};
+beta = {100, 5000};
 
 stopcri_idx = 5;
 stopcri = 10 ^ -stopcri_idx;

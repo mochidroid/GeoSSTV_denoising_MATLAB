@@ -32,7 +32,7 @@ noise_conditions = { ...
 };
 
 % idc_noise_conditions = 1:size(noise_conditions, 2);
-idc_noise_conditions = 1:5;
+idc_noise_conditions = 1;
 
 
 images = {...
@@ -78,6 +78,9 @@ stopcri = 10 ^ -stopcri_idx;
 
 maxiter = 20000;
 % maxiter = 5;
+
+load("dir_save_folder.mat", "dir_save_folder");
+load("dir_save_comp_folder.mat", "dir_save_comp_folder")
 
 
 %% Setting each methods info
@@ -316,9 +319,6 @@ fprintf("SAM  : %#.4g\n", val_sam);
 
 
 % Saving each result
-load("dir_save_folder.mat", "dir_save_folder");
-load("dir_save_comp_folder.mat", "dir_save_comp_folder")
-
 dir_save_method_folder = fullfile(...
     dir_save_folder, ...
     append("denoising_", image), ...
