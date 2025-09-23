@@ -7,9 +7,9 @@ addpath("func_metrics")
 
 %% Switching operator
 is_show_cropped_image = 1;
-is_show_HSI = 1;
-is_plot_psnr_and_ssim_per_band = 1;
-% is_save = 1;
+% is_show_HSI = 1;
+% is_plot_psnr_and_ssim_per_band = 1;
+is_output_image = 1;
 
 
 %% Selecting common parameters
@@ -29,10 +29,10 @@ images = {...
 
 load("dir_save_comp_folder.mat", "dir_save_comp_folder");
 
-types = 'hot';
-% types = 'gray';
+color_types = 'hot';
+% color_types = 'gray';
 
-cmap = colormap(types);
+cmap = colormap(color_types);
 close
 
 
@@ -42,54 +42,69 @@ idx_output = 2;
 switch idx_output
     case 1
         idx_image = 1;
-        idx_noise_condition = 2;
+        idx_noise_condition = 5;
 
-        gain_restoration = 1;
-        % gain_restoration = 2;
+        % gain_restoration = 1;
+        gain_restoration = 2;
         
-        gain_diff = 8;
+        gain_diff = 5;
 
+        % save_band = 6;
+        % save_band = 17;
+
+        save_band = 24;
         % save_band = 31; % Jasper Ridge
-        save_band = 36; % Jasper Ridge
+        % save_band = 36; % Jasper Ridge
         % save_band = 49; % Jasper Ridge
+        % save_band = 186; % Jasper Ridge
         
         % crop_start_pos = [70, 57];
         % crop_start_pos = [46, 70];
-        crop_start_pos = [58, 78];
+
+        % crop_start_pos = [58, 78];
+        % crop_start_pos = [64, 78];
+
+        crop_start_pos = [45, 58];
+
         % crop_start_pos = [72, 55];
         crop_size = [20, 20];
         crop_expansion_rate = 2;
         crop_embed_tblr = 'bl';
         
-        arrow_head_pos = [20, 8];
+        arrow_head_pos = [10, 90];
         % arrow_head_pos = [38, 74];
         % arrow_head_pos = [53, 64];
         arrow_length = 15;
         arrow_handle_width = 3;
         arrow_head_width = 3;
-        arrow_dir_tblr = "l";
-        arrow_methods_idc = [];
+        arrow_dir_tblr = "r";
+        arrow_methods_idc = [5];
 
     case 2
         idx_image = 2;
-        idx_noise_condition = 4;
+        idx_noise_condition = 2;
+        % idx_noise_condition = 4;
 
-        gain_restoration = 1;
+        gain_restoration = 1.5;
         % gain_restoration = 2;
         
-        gain_diff = 8;
+        gain_diff = 5;
 
-        % save_band = 31; % Jasper Ridge
-        save_band = 36; % Jasper Ridge
+        save_band = 20; % Jasper Ridge
+        % save_band = 36; % Jasper Ridge
         % save_band = 49; % Jasper Ridge
-        
-        % crop_start_pos = [70, 57];
-        % crop_start_pos = [46, 70];
-        crop_start_pos = [58, 78];
-        % crop_start_pos = [72, 55];
-        crop_size = [20, 20];
+
+        % crop_start_pos = [51, 3];
+        % crop_start_pos = [45, 3];
+
+        % crop_start_pos = [74, 12];
+        crop_start_pos = [78, 16];
+        % crop_start_pos = [110, 32];
+
+        % crop_size = [20, 20];
+        crop_size = [25, 25];
         crop_expansion_rate = 2;
-        crop_embed_tblr = 'bl';
+        crop_embed_tblr = 'br';
         
         arrow_head_pos = [20, 8];
         % arrow_head_pos = [38, 74];
@@ -328,8 +343,10 @@ if exist("is_show_HSI", "var") && is_show_HSI == 1
     end
 
     cat_diff = abs(repmat(HSI_clean, [1, num_methods+2, 1]) - cat_HSI) * gain_diff;
+    diff_GeoSSTV = abs(HSI_clean - methods_info(num_methods).HSI_restored) * gain_diff;
+    cat_diff_GeoSSTV = repmat(diff_GeoSSTV, [1, num_methods+2, 1]) - cat_diff + 0.5;
 
-    implay(cat(1, cat_HSI, cat_diff));
+    implay(cat(1, cat_HSI, cat_diff, cat_diff_GeoSSTV));
 end
 
 
@@ -377,3 +394,50 @@ if exist("is_plot_psnr_and_ssim_per_band", "var") && is_plot_psnr_and_ssim_per_b
 
 end
 
+%% Output restored image
+if exist("is_output_image", "var") && is_output_image == 1
+    dir_output_root = fullfile(...
+        dir_save_comp_folder, ...
+        "GeoSSTV_OJSP", ...
+        sprintf("%s_case%d_b%d", image, idx_noise_condition, save_band));
+    dir_output_result_folder = fullfile(...
+        dir_output_root, ...
+        "restored_image");
+    dir_output_diff_folder = fullfile(...
+        dir_output_root, ...
+        sprintf("diff_image_%s", color_types));
+    mkdir(dir_output_result_folder)
+    mkdir(dir_output_diff_folder)
+
+    % Saving clean and noisy images
+    imwrite(image_clean, ...
+        fullfile(dir_output_result_folder, ...
+            "image_clean.png"), ...
+        'BitDepth', 8);
+
+    imwrite(image_noisy, ...
+        fullfile(dir_output_result_folder, ...
+            "image_noisy.png"), ...
+        'BitDepth', 8);
+    
+
+    for idx_method = 1:num_methods 
+        name_method = methods_info(idx_method).name;
+        image_restored = methods_info(idx_method).image_restored;
+        diff_image_restored = methods_info(idx_method).diff_image_restored;
+
+        imwrite(image_restored, ...
+            fullfile(...
+                dir_output_result_folder, ...
+                sprintf("image_%s.png", name_method)), ...
+            'BitDepth', 8);
+        imwrite(diff_image_restored, ...
+            fullfile(...
+                dir_output_diff_folder, ...
+                sprintf("image_%s.png", name_method)), ...
+            'BitDepth', 8);
+    end
+
+    fprintf("save dir: %s\n", dir_output_result_folder)
+    fprintf("save dir: %s\n", dir_output_diff_folder)
+end
