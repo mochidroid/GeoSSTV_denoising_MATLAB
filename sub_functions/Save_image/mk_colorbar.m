@@ -1,11 +1,11 @@
 close all;
 %% Settings
-num_scale = 5;
+num_scale = 3;
 scale_width = 6;
 
-types = 'parula';
+% types = 'parula';
 % types = 'turbo';
-% types = 'hot';
+types = 'hot';
 cmap = colormap(types);
 
 num_ver_pixel = 256;
