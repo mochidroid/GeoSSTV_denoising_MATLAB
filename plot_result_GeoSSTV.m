@@ -7,11 +7,12 @@ addpath("func_metrics")
 
 %% Switching operator
 is_plot_metrics = 1;
-is_show_HSI = 1;
+% is_show_HSI = 1;
 % is_show_SAMmap = 1;
+
 diff_magnification = 7;
 
-is_plot_psnr_and_ssim_per_band = 1;
+% is_plot_psnr_and_ssim_per_band = 1;
 % is_output_csv = 1;
 
 
@@ -40,11 +41,8 @@ noise_conditions = { ...
 };
 
 
-% idc_noise_conditions = 1:size(noise_conditions, 2);
-% idc_noise_conditions = [5:6, 11:14];
-% idc_noise_conditions = 1:4;
-% idc_noise_conditions = 2:5;
-idc_noise_conditions = 3;
+idc_noise_conditions = 1:size(noise_conditions, 2);
+% idc_noise_conditions = 3;
 
 images = {...
     "JasperRidge", ...

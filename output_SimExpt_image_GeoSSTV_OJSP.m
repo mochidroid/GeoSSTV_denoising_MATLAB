@@ -37,7 +37,7 @@ close
 
 
 %% Setting output parameters
-idx_output = 2;
+idx_output = 1;
 
 switch idx_output
     case 1
@@ -52,33 +52,41 @@ switch idx_output
         % save_band = 6;
         % save_band = 17;
 
-        save_band = 24;
-        % save_band = 31; % Jasper Ridge
-        % save_band = 36; % Jasper Ridge
-        % save_band = 49; % Jasper Ridge
-        % save_band = 186; % Jasper Ridge
+        % save_band = 24;
+        save_band = 35; % Jasper Ridge
         
         % crop_start_pos = [70, 57];
         % crop_start_pos = [46, 70];
 
-        % crop_start_pos = [58, 78];
-        % crop_start_pos = [64, 78];
+        crop_start_pos = [34, 10];
 
-        crop_start_pos = [45, 58];
+        % crop_start_pos = [65, 80];
 
-        % crop_start_pos = [72, 55];
+        % crop_start_pos = [18, 48];
+        % crop_start_pos = [38, 48];
+
+        % crop_start_pos = [34, 68];
+
+        % crop_start_pos = [45, 58]; % Honmei
+
         crop_size = [20, 20];
         crop_expansion_rate = 2;
-        crop_embed_tblr = 'bl';
+        crop_embed_tblr = 'br';
         
-        arrow_head_pos = [10, 90];
-        % arrow_head_pos = [38, 74];
-        % arrow_head_pos = [53, 64];
+        
+        % arrow_head_pos = [10, 90];
+        % arrow_dir_tblr = "r";
+
+        % arrow_head_pos = [20, 13];
+        % arrow_dir_tblr = "l";
+
+        arrow_head_pos = [40, 16];
+        arrow_dir_tblr = "b";
+
         arrow_length = 15;
         arrow_handle_width = 3;
         arrow_head_width = 3;
-        arrow_dir_tblr = "r";
-        arrow_methods_idc = [5];
+        arrow_methods_idc = [1:7];
 
     case 2
         idx_image = 2;
@@ -217,19 +225,15 @@ fprintf("Case %g (g%g, ps%g, pt%g, pd%g)\n", ...
 
 %% Cropping clean and noisy HS images
 image_clean = HSI_clean(:,:,save_band)*gain_restoration;
-image_clean = Crop_Embed_image(image_clean, ...
-            crop_start_pos, crop_size, crop_expansion_rate, crop_embed_tblr);
-
 image_noisy = HSI_noisy(:,:,save_band)*gain_restoration;
-image_noisy = Crop_Embed_image(image_noisy, ...
-            crop_start_pos, crop_size, crop_expansion_rate, crop_embed_tblr);
 
 diff_image_noisy_gray = abs(image_noisy - image_clean);
 diff_image_noisy = Gray2RGB(diff_image_noisy_gray, cmap);
-diff_image_noisy = Crop_Embed_image(diff_image_noisy, ...
-            crop_start_pos, crop_size, crop_expansion_rate, crop_embed_tblr);
 
 if ~isempty(arrow_methods_idc)
+    image_clean = Embed_arrow(image_clean, ...
+                arrow_head_pos, arrow_length, ...
+                arrow_handle_width, arrow_head_width, arrow_dir_tblr);
     image_noisy = Embed_arrow(image_noisy, ...
                 arrow_head_pos, arrow_length, ...
                 arrow_handle_width, arrow_head_width, arrow_dir_tblr);
@@ -237,6 +241,13 @@ if ~isempty(arrow_methods_idc)
                 arrow_head_pos, arrow_length, ...
                 arrow_handle_width, arrow_head_width, arrow_dir_tblr);
 end
+
+image_clean = Crop_Embed_image(image_clean, ...
+            crop_start_pos, crop_size, crop_expansion_rate, crop_embed_tblr);
+image_noisy = Crop_Embed_image(image_noisy, ...
+            crop_start_pos, crop_size, crop_expansion_rate, crop_embed_tblr);
+diff_image_noisy = Crop_Embed_image(diff_image_noisy, ...
+            crop_start_pos, crop_size, crop_expansion_rate, crop_embed_tblr);
 
 
 %% Loading and cropping result images
@@ -264,13 +275,10 @@ for idx_method = 1:num_methods
 
     % Cropping result images
     image_restored = HSI_restored(:,:,save_band)*gain_restoration;
-    image_restored = Crop_Embed_image(image_restored, ...
-                crop_start_pos, crop_size, crop_expansion_rate, crop_embed_tblr);
     
     diff_image_restored_gray = abs(image_restored - image_clean)*gain_diff;
     diff_image_restored = Gray2RGB(diff_image_restored_gray, cmap);
-    diff_image_restored = Crop_Embed_image(diff_image_restored, ...
-                    crop_start_pos, crop_size, crop_expansion_rate, crop_embed_tblr);
+    
     
     if find(arrow_methods_idc == idx_method)
         image_restored = Embed_arrow(image_restored, ...
@@ -280,6 +288,11 @@ for idx_method = 1:num_methods
                 arrow_head_pos, arrow_length, ...
                 arrow_handle_width, arrow_head_width, arrow_dir_tblr);
     end
+
+    image_restored = Crop_Embed_image(image_restored, ...
+                crop_start_pos, crop_size, crop_expansion_rate, crop_embed_tblr);
+    diff_image_restored = Crop_Embed_image(diff_image_restored, ...
+                    crop_start_pos, crop_size, crop_expansion_rate, crop_embed_tblr);
 
     methods_info(idx_method).image_restored         = image_restored;
     methods_info(idx_method).diff_image_restored    = diff_image_restored;
