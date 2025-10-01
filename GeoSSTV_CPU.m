@@ -24,17 +24,17 @@
 %  ========================================================================
 
 function [HSI_restored, removed_noise, iteration, converge_rate_U] ...
-     = GeoSSTV_GPU(HSI_noisy, params)
-fprintf('** Running GeoSSTV_GPU **\n');
-HSI_noisy = gpuArray(single(HSI_noisy));
+     = GeoSSTV_CPU(HSI_noisy, params)
+fprintf('** Running GeoSSTV_CPU **\n');
+HSI_noisy = single(HSI_noisy);
 [n1, n2, n3] = size(HSI_noisy);
 
-alpha       = gpuArray(single(params.alpha));
-beta        = gpuArray(single(params.beta));
-epsilon     = gpuArray(single(params.epsilon));
-omage      = gpuArray(single(params.omega));
-maxiter     = gpuArray(single(params.maxiter));
-stopcri     = gpuArray(single(params.stopcri));
+alpha       = single(params.alpha);
+beta        = single(params.beta);
+epsilon     = single(params.epsilon);
+omage      = single(params.omega);
+maxiter     = single(params.maxiter);
+stopcri     = single(params.stopcri);
 
 %% Setting params
 dispiter    = unique([1:10, 1000:1000:maxiter]);
@@ -52,11 +52,11 @@ dispband    = round(n3/2);
 % T: stripe noise
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-U = zeros([n1, n2, n3], 'single', 'gpuArray');
-W1 = zeros([n1, n2, n3, 2, 3], 'single', 'gpuArray');
-W2 = zeros([n1, n2, n3, 2, 3], 'single', 'gpuArray');
-S = zeros([n1, n2, n3], 'single', 'gpuArray');
-T = zeros([n1, n2, n3], 'single', 'gpuArray');
+U = zeros([n1, n2, n3], 'single');
+W1 = zeros([n1, n2, n3, 2, 3], 'single');
+W2 = zeros([n1, n2, n3, 2, 3], 'single');
+S = zeros([n1, n2, n3], 'single');
+T = zeros([n1, n2, n3], 'single');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % dual variables
@@ -71,10 +71,10 @@ T = zeros([n1, n2, n3], 'single', 'gpuArray');
 % Y4 = Dv(T)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-Y1 = zeros([n1, n2, n3, 2], 'single', 'gpuArray');
-Y2 = zeros([n1, n2, n3, 2], 'single', 'gpuArray');
-Y3 = zeros([n1, n2, n3], 'single', 'gpuArray');
-Y4 = zeros([n1, n2, n3], 'single', 'gpuArray');
+Y1 = zeros([n1, n2, n3, 2], 'single');
+Y2 = zeros([n1, n2, n3, 2], 'single');
+Y3 = zeros([n1, n2, n3], 'single');
+Y4 = zeros([n1, n2, n3], 'single');
 
 
 %% Setting operators
@@ -91,12 +91,12 @@ Dvt     = @(z) cat(1, -z(1, :, :), -z(2:(end-1), :, :) + z(1:(end-2), :, :), z(e
 
 
 %% Setting step size for P-PDS
-gamma1_U    = gpuArray(single(1/(8 + 8*4 + 1)));
-gamma1_W1   = gpuArray(single(1/4));
-gamma1_W2   = gpuArray(single(1/4));
-gamma1_S    = gpuArray(single(1));
-gamma1_T    = gpuArray(single(1/(4 + 1)));
-gamma2      = gpuArray(single(1/5));
+gamma1_U    = single(1/(8 + 8*4 + 1)));
+gamma1_W1   = single(1/4));
+gamma1_W2   = single(1/4));
+gamma1_S    = single(1));
+gamma1_T    = single(1/(4 + 1)));
+gamma2      = single(1/5));
 
 
 %% main loop (P-PDS)
