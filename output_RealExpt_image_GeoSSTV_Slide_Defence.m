@@ -7,8 +7,8 @@ addpath("func_metrics")
 
 %% Switching operator
 is_show_cropped_image = 1;
-is_show_HSI = 1;  
-% is_output_image = 1;
+% is_show_HSI = 1;  
+is_output_image = 1;
 
 
 %% Setting common parameters
@@ -53,14 +53,14 @@ switch idx_output
         crop_expansion_rate = 2;
         crop_embed_tblr = 'br';
         
-        arrow_head_pos = [20, 8];
-        % arrow_head_pos = [38, 74];
-        % arrow_head_pos = [53, 64];
-        arrow_length = 15;
-        arrow_handle_width = 3;
-        arrow_head_width = 3;
-        arrow_dir_tblr = "l";
-        arrow_methods_idc = [];
+        % arrow_head_pos = [20, 8];
+        % % arrow_head_pos = [38, 74];
+        % % arrow_head_pos = [53, 64];
+        % arrow_length = 15;
+        % arrow_handle_width = 3;
+        % arrow_head_width = 3;
+        % arrow_dir_tblr = "l";
+        % arrow_methods_idc = [];
 
     case 2
         idx_image = 2;
@@ -223,14 +223,14 @@ fprintf("Image: %s Size: (%d, %d, %d)\n", image, hsi.n1, hsi.n2, hsi.n3);
 
 %% Cropping clean and noisy HS images
 image_noisy = HSI_noisy(:,:,save_band)*gain_restoration;
-image_noisy = Crop_Embed_image(image_noisy, ...
-            crop_start_pos, crop_size, crop_expansion_rate, crop_embed_tblr);
+[image_noisy, crop_image_noisy] = Crop_Sep_image(image_noisy, crop_start_pos, crop_size);
 
-if ~isempty(arrow_methods_idc)
-    image_noisy = Embed_arrow(image_noisy, ...
-                arrow_head_pos, arrow_length, ...
-                arrow_handle_width, arrow_head_width, arrow_dir_tblr);
-end
+
+% if ~isempty(arrow_methods_idc)
+%     image_noisy = Embed_arrow(image_noisy, ...
+%                 arrow_head_pos, arrow_length, ...
+%                 arrow_handle_width, arrow_head_width, arrow_dir_tblr);
+% end
 
 
 %% Loading and cropping result images
@@ -253,17 +253,17 @@ for idx_method = 1:num_methods
 
     % Cropping result images
     image_restored = HSI_restored(:,:,save_band)*gain_restoration;
-    image_restored = Crop_Embed_image(image_restored, ...
-                crop_start_pos, crop_size, crop_expansion_rate, crop_embed_tblr);
+    [image_restored, crop_image_restored] = Crop_Sep_image(image_restored, crop_start_pos, crop_size);
 
     
-    if find(arrow_methods_idc == idx_method)
-        image_restored = Embed_arrow(image_restored, ...
-                    arrow_head_pos, arrow_length, ...
-                    arrow_handle_width, arrow_head_width, arrow_dir_tblr);
-    end
+    % if find(arrow_methods_idc == idx_method)
+    %     image_restored = Embed_arrow(image_restored, ...
+    %                 arrow_head_pos, arrow_length, ...
+    %                 arrow_handle_width, arrow_head_width, arrow_dir_tblr);
+    % end
 
     methods_info(idx_method).image_restored         = image_restored;
+    methods_info(idx_method).crop_image_restored    = crop_image_restored;
 
 end
 
@@ -271,15 +271,20 @@ end
 %% Showing cropped images
 if exist("is_show_cropped_image", "var") && is_show_cropped_image == 1
     cat_restored_image = image_noisy;
+    cat_crop_restored_image = crop_image_noisy;
 
     for idx_method = 1:num_methods 
         cat_restored_image = cat(2, cat_restored_image, methods_info(idx_method).image_restored);
+        cat_crop_restored_image = cat(2, cat_crop_restored_image, methods_info(idx_method).crop_image_restored);
     end
 
     figure;
     imshow(cat_restored_image);
-end
 
+    figure;
+    imshow(cat_crop_restored_image);
+
+end
 
 %% Showing HSI
 if exist("is_show_HSI", "var") && is_show_HSI == 1
@@ -297,30 +302,48 @@ end
 
 %% Output restored image
 if exist("is_output_image", "var") && is_output_image == 1
-    dir_output_folder = fullfile( ...
+    dir_output_root = fullfile(...
         dir_save_comp_folder, ...
-        "GeoSSTV_OJSP", ...
+        "GeoSSTV_slide_defence", ...
         sprintf("%s_b%d", image, save_band));
-    mkdir(dir_output_folder)
+    dir_output_result_folder = fullfile(...
+        dir_output_root, ...
+        "restored_image");
+    dir_output_crop_result_folder = fullfile(...
+        dir_output_root, ...
+        "crop_image");
+    mkdir(dir_output_result_folder)
+    mkdir(dir_output_crop_result_folder)
 
 
-    output_file_name = fullfile(...
-            dir_output_folder, ...
-            "image_noisy.png");
+    imwrite(image_noisy, ...
+        fullfile(dir_output_result_folder, ...
+            "image_noisy.png"), ...
+        "BitDepth", 8);
 
-    imwrite(image_noisy, output_file_name, 'BitDepth', 8);
+    imwrite(crop_image_noisy, ...
+        fullfile(dir_output_crop_result_folder, ...
+            "crop_image_noisy.png"), ...
+        "BitDepth", 8);
     
 
     for idx_method = 1:num_methods 
         name_method = methods_info(idx_method).name;
         image_restored = methods_info(idx_method).image_restored;
+        crop_image_restored = methods_info(idx_method).crop_image_restored;
 
-        output_file_name = fullfile(...
-            dir_output_folder, ...
-            sprintf("image_%s.png", name_method));
-
-        imwrite(image_restored, output_file_name, 'BitDepth', 8);
+        imwrite(image_restored, ...
+            fullfile(...
+                dir_output_result_folder, ...
+                sprintf("image_%s.png", name_method)), ...
+            "BitDepth", 8);
+        imwrite(crop_image_restored, ...
+            fullfile(...
+                dir_output_crop_result_folder, ...
+                sprintf("crop_image_%s.png", name_method)), ...
+            "BitDepth", 8);
     end
 
-    fprintf("save dir: %s\n", dir_output_folder)
+    fprintf("save dir: %s\n", dir_output_result_folder)
+    fprintf("save dir: %s\n", dir_output_crop_result_folder)
 end
