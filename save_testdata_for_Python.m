@@ -24,7 +24,11 @@ images = {...
 
 idc_images = 1:numel(images);
 
-dir_save_root = "H:\マイドライブ\MATLAB_Share\Data_QRNN3D\forGeoSSTV\normalized";
+% dir_save_root = "H:\マイドライブ\MATLAB_Share\Data_QRNN3D\forGeoSSTV\normalized";
+
+dir_save_root = "H:\マイドライブ\MATLAB_Share\Dataset_GeoSSTV_OJSP\normalized";
+% dir_save_root = "H:\マイドライブ\MATLAB_Share\Dataset_GeoSSTV_OJSP\unnormalized";
+
 
 idx_data = 1;
 total_data = length(idc_noise_conditions) * length(idc_images);
