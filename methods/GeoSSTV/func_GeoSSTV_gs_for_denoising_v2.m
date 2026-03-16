@@ -13,8 +13,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 function [HSI_restored, removed_noise, other_result] ...
-     = func_RISSTV_gs_for_denoising(HSI_clean, HSI_noisy, params)
-fprintf("** Running func_RISSTV_gs_for_denoising **\n");
+     = func_GeoSSTV_gs_for_denoising_v2(HSI_clean, HSI_noisy, params)
+fprintf("** Running func_GeoSSTV_gs_for_denoising_v2 **\n");
 HSI_clean = single(HSI_clean);
 HSI_noisy  = single(HSI_noisy);
 HSI_noisy_gpu = gpuArray(single(HSI_noisy));
@@ -66,25 +66,19 @@ S  = zeros([n1, n2, n3], "single", "gpuArray");
 % dual variables
 % Y1: term of connection with Du and L*w
 % Y2: term of connection with DDsu and L*w 
-% Y3: term of box constraint
-% Y4: term of sparse noise 
-% Y5: term of stripe noise 
-% Y6: stripe noise
+% Y3: term of fidelity constraint
+% Y4: stripe noise
 %
 % Y1 = D(U) - L*(W1)
 % Y2 = D(Ds(U)) - L*(W2) 
-% Y3 = U
-% Y4 = S
-% Y5 = T
-% Y6 = Dv(T)
+% Y3 = U + S + T
+% Y4 = Dv(T)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 Y1 = zeros([n1, n2, n3, 2], "single", "gpuArray");
 Y2 = zeros([n1, n2, n3, 2], "single", "gpuArray");
 Y3 = zeros([n1, n2, n3], "single", "gpuArray");
-Y4 = zeros([n1, n2, n3], "single", "gpuArray");
-% Y5 = zeros([n1, n2, n3], "single", "gpuArray");
-% Y6 = zeros([n1, n2, n3], "single", "gpuArray");
+% Y4 = zeros([n1, n2, n3], "single", "gpuArray");
 
 
 %% Setting step size for P-PDS
@@ -118,26 +112,25 @@ for i = 1:maxiter
     tic;
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Updating Primal Variables except W1 W2
+    % Updating U
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     U_tmp   = U - gamma1_U*(Dt(Y1) + Dlt(Dt(Y2)) + Y3);
-    S_tmp   = S - gamma1_S*Y4;
-    % T_tmp   = T - gamma1_T*(Y5 + Dvt(Y6));
+    U_next  = ProjBox(U_tmp, 0, 1);
+    U_res   = 2*U_next - U;
 
-    % Primal_sum = U_tmp + S_tmp + T_tmp;
-    Primal_sum = U_tmp + S_tmp;
-    Primal_sum = ProjL2ball(Primal_sum, HSI_noisy_gpu, epsilon) - Primal_sum;
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Updating S
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    S_tmp   = S - gamma1_S*Y3;
+    S_next  = ProjFastL1Ball(S_tmp, alpha);
+    S_res   = 2*S_next - S;
 
-    % U_next = U_tmp + Primal_sum/3;
-    % S_next = S_tmp + Primal_sum/3;
-    % T_next = T_tmp + Primal_sum/3;
-    U_next = U_tmp + Primal_sum/2;
-    S_next = S_tmp + Primal_sum/2;
-
-    U_res = 2*U_next - U;
-    S_res = 2*S_next - S;
-    % T_res = 2*T_next - T;
-
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Updating T
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % T_tmp   = T - gamma1_T*(Y3 + Dvt(Y4));
+    % T_next  = ProjFastL1Ball(T_tmp, beta);
+    % T_res   = 2*T_next - T;
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Updating W1
@@ -153,7 +146,7 @@ for i = 1:maxiter
     W2_next  = Prox_l12norm_d4(W2_tmp, gamma1_W2);
     W2_res   = 2*W2_next - W2;
 
-    
+
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Updating Y1
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -167,25 +160,14 @@ for i = 1:maxiter
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Updating Y3
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    Y3_tmp  = Y3 + gamma2*U_res;
-    Y3_next = Y3_tmp - gamma2*ProjBox(Y3_tmp/gamma2, 0, 1);
+    % Y3_tmp  = Y3 + gamma2*(U_res + S_res + T_res);
+    Y3_tmp  = Y3 + gamma2*(U_res + S_res);
+    Y3_next = Y3_tmp - gamma2*ProjL2ball(Y3_tmp/gamma2, HSI_noisy_gpu, epsilon);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Updating Y4
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    Y4_tmp  = Y4 + gamma2*S_res;
-    Y4_next = Y4_tmp - gamma2*ProjFastL1Ball(Y4_tmp/gamma2, alpha);
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Updating Y5
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Y5_tmp  = Y5 + gamma2*T_res;
-    % Y5_next = Y5_tmp - gamma2*ProjFastL1Ball(Y5_tmp/gamma2, beta);
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Updating Y6
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Y6_next = Y6 + gamma2*Dv(T_res);
+    % Y4_next = Y4 + gamma2*Dv(T_res);
 
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -216,9 +198,7 @@ for i = 1:maxiter
     Y1  = Y1_next;
     Y2  = Y2_next;
     Y3  = Y3_next;
-    Y4  = Y4_next;
-    % Y5  = Y5_next;
-    % Y6  = Y6_next;
+    % Y4  = Y4_next;
 
  
     % Saving results per iter
